@@ -1,6 +1,8 @@
 # Bifrost Community Workspace
 
-A community-maintained [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs. Contains production-ready modules, AI agents, workflows, and apps that any MSP can deploy and customize.
+A community [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs. Contains modules, AI agents, workflows, and apps that can serve as references or be ported into your own workspace.
+
+> **Note:** This repo is meant as a starting point and reference, not a fork-and-run solution. The recommended approach is to use an AI agent to port the pieces you need into your own Bifrost workspace, adapting them to your environment as you go.
 
 ## What's Included
 
@@ -8,7 +10,7 @@ A community-maintained [Bifrost](https://github.com/jackmusick/bifrost) workspac
 
 **HaloPSA Report Agent** — An AI agent that generates HaloPSA SQL reports from natural language. Searches its knowledge base for schema patterns, writes and executes queries, iterates on errors, and saves what it learns for next time.
 
-**Microsoft CSP App** — A full React application for managing Microsoft CSP tenants. Links tenants to Bifrost organizations, handles application consent, manages GDAP relationships and role assignments, and provides batch operations.
+**Microsoft CSP App** — A React application for managing Microsoft CSP tenants. Links tenants to Bifrost organizations, handles application consent, manages GDAP relationships and role assignments, and provides batch operations.
 
 **AutoElevate Integration** — An AI agent that reviews AutoElevate privilege elevation requests against your approval policy and autonomously approves, creates rules, or escalates to a human tech.
 
@@ -42,33 +44,15 @@ A community-maintained [Bifrost](https://github.com/jackmusick/bifrost) workspac
 - **Microsoft tools** — Email via Graph API, Exchange data providers
 - **Bifrost utilities** — Organization management, role management, permissions
 
-## Prerequisites
+## Usage
 
-- [Bifrost CLI](https://docs.gobifrost.com) installed and authenticated
-- Accounts with the integrations you plan to use (HaloPSA, Microsoft 365, AutoElevate, etc.)
+The recommended way to use this repo is to have an AI agent (e.g., Claude Code with the Bifrost skill) read the code here and port the relevant pieces into your own workspace. This lets you adapt modules, workflows, and patterns to your specific environment rather than trying to maintain a fork.
 
-## Setup
+For Bifrost documentation, see [docs.gobifrost.com](https://docs.gobifrost.com).
 
-1. Clone this repo:
-   ```bash
-   git clone https://github.com/jackmusick/bifrost-workspace-community.git
-   cd bifrost-workspace-community
-   ```
+### Configuration Reference
 
-2. Initialize Bifrost:
-   ```bash
-   bifrost init
-   ```
-
-3. Configure your integrations in the Bifrost dashboard — each integration needs your credentials and org mappings.
-
-4. For the **Elevation Agent**, set the `autoelevate_approval_policy` config with your organization's approval policy text.
-
-5. For the **Microsoft CSP App**, update the `RESELLER_LINK` in `apps/microsoft-csp/components/TenantTable.tsx` with your Partner Center reseller invitation URL.
-
-## Configuration
-
-Key config values to set (via Bifrost dashboard or `.bifrost/configs.yaml`):
+Key config values used by included features:
 
 | Config | Used By | Description |
 |--------|---------|-------------|
@@ -77,9 +61,11 @@ Key config values to set (via Bifrost dashboard or `.bifrost/configs.yaml`):
 | `autoelevate_denial_email_template_id` | Elevation Agent | HaloPSA email template for denials |
 | `ninja_script_id` | NinjaOne Extension | Pre-deployed script ID for remote execution |
 
+The Microsoft CSP app also needs a `RESELLER_LINK` in `apps/microsoft-csp/components/TenantTable.tsx` set to your Partner Center reseller invitation URL.
+
 ## Contributing
 
-Contributions are welcome! This workspace is meant to grow with the MSP community. If you've built something useful on Bifrost, consider adding it here.
+Contributions are welcome! If you've built something useful on Bifrost, consider adding it here.
 
 1. Fork the repo
 2. Create a feature branch
