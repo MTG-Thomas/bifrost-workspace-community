@@ -1,6 +1,6 @@
 # Bifrost Community Workspace
 
-A community-maintained Bifrost workspace for MSPs. Contains production-ready modules, AI agents, workflows, and apps that any MSP can deploy and customize.
+A community-maintained [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs. Contains production-ready modules, AI agents, workflows, and apps that any MSP can deploy and customize.
 
 ## What's Included
 
@@ -44,7 +44,7 @@ A community-maintained Bifrost workspace for MSPs. Contains production-ready mod
 
 ## Prerequisites
 
-- Bifrost CLI installed and authenticated
+- [Bifrost CLI](https://docs.gobifrost.com) installed and authenticated
 - Accounts with the integrations you plan to use (HaloPSA, Microsoft 365, AutoElevate, etc.)
 
 ## Setup
