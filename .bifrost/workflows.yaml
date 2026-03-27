@@ -57,6 +57,20 @@ workflows:
     name: get_my_timesheet
     path: shared/halopsa/tools/timeentry.py
     type: tool
+  0df08d7b-4d69-4b17-a92e-df056d2996b3:
+    access_level: authenticated
+    category: Autotask
+    description: Sync active Autotask customer companies to Bifrost organizations.
+    endpoint_enabled: false
+    function_name: sync_autotask_customers
+    id: 0df08d7b-4d69-4b17-a92e-df056d2996b3
+    name: 'Autotask: Sync Customers'
+    path: features/autotask/workflows/sync_customers.py
+    tags:
+    - autotask
+    - sync
+    timeout_seconds: 300
+    type: workflow
   1becf769-2243-417c-ba4c-be3f7a2f7410:
     function_name: seed_report_to_knowledge
     id: 1becf769-2243-417c-ba4c-be3f7a2f7410
@@ -90,6 +104,20 @@ workflows:
     name: search_halopsa_knowledge
     path: features/halopsa_reporting/workflows/knowledge_mgmt.py
     type: tool
+  32222c8b-5b11-40b2-aed3-e8840766cf15:
+    access_level: authenticated
+    category: Autotask
+    description: Returns active Autotask customer companies for org mapping.
+    endpoint_enabled: false
+    function_name: list_autotask_companies
+    id: 32222c8b-5b11-40b2-aed3-e8840766cf15
+    name: 'Autotask: List Companies'
+    path: features/autotask/workflows/data_providers.py
+    tags:
+    - autotask
+    - data-provider
+    timeout_seconds: 60
+    type: data_provider
   3322338c-3b3b-4055-9897-8f600849a4b8:
     description: Returns all active HaloPSA clients as {label, value} pairs for use
       in forms and dropdowns.

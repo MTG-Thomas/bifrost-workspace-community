@@ -191,6 +191,34 @@ integrations:
     id: fffea9b0-03bd-46a1-89f8-41bb67d22ceb
     mappings: []
     name: TD SYNNEX Partner API
+  7c3f243e-83d1-4d37-93da-2545e85d4cf2:
+    config_schema:
+    - description: API base URL (e.g. https://webservices14.autotask.net/atservicesrest)
+      key: base_url
+      position: 0
+      required: true
+      type: string
+    - description: ApiIntegrationCode header value
+      key: api_integration_code
+      position: 1
+      required: true
+      type: secret
+    - description: API username (email)
+      key: username
+      position: 2
+      required: true
+      type: string
+    - description: API secret/password
+      key: secret
+      position: 3
+      required: true
+      type: secret
+    entity_id: company_id
+    entity_id_name: Company
+    id: 7c3f243e-83d1-4d37-93da-2545e85d4cf2
+    list_entities_data_provider_id: 32222c8b-5b11-40b2-aed3-e8840766cf15
+    mappings: []
+    name: Autotask
   05b0c5ab-e7ff-4f24-ba4e-8693b4d9d5fb:
     config_schema:
     - description: VIPRE External API base URI (e.g. https://api.myvipre.com/api/v1)
