@@ -47,6 +47,150 @@ integrations:
     list_entities_data_provider_id: 9c752875-4f3e-475e-92be-bc47f54f72fa
     mappings: []
     name: Meraki
+  201199f4-32dc-4cea-b176-5f37c488a94a:
+    config_schema:
+    - description: Quoter OAuth client ID
+      key: client_id
+      position: 0
+      required: true
+      type: string
+    - description: Quoter OAuth client secret
+      key: client_secret
+      position: 1
+      required: true
+      type: secret
+    id: 201199f4-32dc-4cea-b176-5f37c488a94a
+    list_entities_data_provider_id: f04a1d7c-3efe-421d-af15-d3c8bc689ebc
+    mappings: []
+    name: Quoter
+  3062d7be-3bc3-4d05-8345-4d132ae1be72:
+    config_schema:
+    - description: Datto RMM API base URI (e.g. https://concord-api.centrastage.net)
+      key: base_uri
+      position: 0
+      required: true
+      type: string
+    - description: Datto RMM API access key
+      key: api_key
+      position: 1
+      required: true
+      type: string
+    - description: Datto RMM API secret key
+      key: api_secret
+      position: 2
+      required: true
+      type: secret
+    - description: Optional OAuth client ID override; defaults to public-client
+      key: oauth_client_id
+      position: 3
+      required: false
+      type: string
+    - description: Optional OAuth client secret override; defaults to public
+      key: oauth_client_secret
+      position: 4
+      required: false
+      type: secret
+    id: 3062d7be-3bc3-4d05-8345-4d132ae1be72
+    list_entities_data_provider_id: 7966b43d-f27a-4ae9-921c-269eccdede6d
+    mappings: []
+    name: Datto RMM
+  60acef7a-1e01-492d-b93c-be5534ba255e:
+    config_schema:
+    - description: Keeper Commander Service Mode base URL, e.g. http://keeper-commander:8090
+      key: base_url
+      position: 0
+      required: true
+      type: string
+    - description: Keeper Commander Service Mode API key
+      key: api_key
+      position: 1
+      required: true
+      type: secret
+    - description: Optional service API version override, v2 by default; set to v1
+        only if queue mode is disabled
+      key: api_version
+      position: 2
+      required: false
+      type: string
+    id: 60acef7a-1e01-492d-b93c-be5534ba255e
+    list_entities_data_provider_id: d44e888b-600e-413f-8daa-75df583d5af4
+    mappings: []
+    name: Keeper MSP
+  6cab311a-1b24-480f-be76-4961c53bd138:
+    config_schema:
+    - description: Datto SaaS Protection public API key
+      key: api_key
+      position: 0
+      required: true
+      type: string
+    - description: Datto SaaS Protection private API secret
+      key: api_secret
+      position: 1
+      required: true
+      type: secret
+    id: 6cab311a-1b24-480f-be76-4961c53bd138
+    list_entities_data_provider_id: af2c7f56-95ca-4a4c-a926-af8e892e13ec
+    mappings: []
+    name: Datto SaaS Protection
+  c2f29cc0-1010-45d3-b4ac-f1bb0776a0a8:
+    config_schema:
+    - description: Idemeum parent tenant base URL (e.g. https://midtowntg.idemeum.com)
+      key: base_url
+      position: 0
+      required: true
+      type: string
+    - description: Idemeum inbound integration API key
+      key: api_key
+      position: 1
+      required: true
+      type: secret
+    entity_id: customer_id
+    entity_id_name: Customer
+    id: c2f29cc0-1010-45d3-b4ac-f1bb0776a0a8
+    list_entities_data_provider_id: 70f8bbd0-b93a-43e4-bf05-5599d6c221cf
+    mappings: []
+    name: Idemeum
+  e845171a-f587-4aa3-9ca5-c50e8fadb22e:
+    config_schema:
+    - description: Datto Networking / CloudTrax API key
+      key: api_key
+      position: 0
+      required: true
+      type: string
+    - description: Datto Networking / CloudTrax API secret
+      key: api_secret
+      position: 1
+      required: true
+      type: secret
+    - description: Optional API base URL override; defaults to https://api.cloudtrax.com
+      key: base_url
+      position: 2
+      required: false
+      type: string
+    id: e845171a-f587-4aa3-9ca5-c50e8fadb22e
+    list_entities_data_provider_id: 27a96906-e182-4c90-bd30-5257843bbdd0
+    mappings: []
+    name: Datto Networking
+  fffea9b0-03bd-46a1-89f8-41bb67d22ceb:
+    config_schema:
+    - description: TD SYNNEX Partner API client ID
+      key: client_id
+      position: 0
+      required: true
+      type: string
+    - description: TD SYNNEX Partner API client secret
+      key: client_secret
+      position: 1
+      required: true
+      type: secret
+    - description: Optional base URL override; defaults to https://api.us.tdsynnex.com
+      key: base_url
+      position: 2
+      required: false
+      type: string
+    id: fffea9b0-03bd-46a1-89f8-41bb67d22ceb
+    mappings: []
+    name: TD SYNNEX Partner API
   05b0c5ab-e7ff-4f24-ba4e-8693b4d9d5fb:
     config_schema:
     - description: VIPRE External API base URI (e.g. https://api.myvipre.com/api/v1)
