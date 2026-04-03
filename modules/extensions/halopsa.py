@@ -11,14 +11,16 @@ from __future__ import annotations
 import logging
 import re
 import time
-from typing import AsyncIterator, Literal, Any
+from typing import TYPE_CHECKING, AsyncIterator, Literal, Any
 
 import asyncio
 from collections.abc import Awaitable, Callable
 
 from bifrost import tables, executions, config, context, integrations, UserError
-from features.ai_ticketing.models import EnrichedTicket, TicketMetadata
 from modules import halopsa
+
+if TYPE_CHECKING:
+    from features.ai_ticketing.models import EnrichedTicket, TicketMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,13 @@ MATCH_TABLE = "automation_ticket_matches"
 
 _REF_CACHE_TTL = 600  # 10 minutes
 _ref_cache: dict[str, tuple[float, Any]] = {}
+
+
+def _get_ai_ticket_models() -> tuple[type["EnrichedTicket"], type["TicketMetadata"]]:
+    """Import AI ticketing models lazily for workflows that actually need them."""
+    from features.ai_ticketing.models import EnrichedTicket, TicketMetadata
+
+    return EnrichedTicket, TicketMetadata
 
 
 def _get_cached(key: str) -> Any | None:
@@ -994,6 +1003,232 @@ async def list_clients(*, include_inactive: bool = False) -> list:
     return await paginate(halopsa.list_clients, **kwargs)
 
 
+def get_project_client_id(project: dict | Any) -> int | None:
+    """Extract the HaloPSA client ID from a project-like record."""
+    project_dict = normalize_halo_result(project)
+    client_id = project_dict.get("client_id")
+    if client_id is None:
+        return None
+    try:
+        return int(str(client_id))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_project_custom_fields(project_dict: dict) -> list[dict]:
+    """Normalize HaloPSA custom fields on a project record."""
+    fields = []
+    for field in project_dict.get("customfields") or []:
+        field_dict = normalize_halo_result(field)
+        fields.append(
+            {
+                "id": field_dict.get("id"),
+                "label": field_dict.get("name") or field_dict.get("label") or "",
+                "value": field_dict.get("value"),
+                "display_value": field_dict.get("display_value") or field_dict.get("lookup_name") or "",
+                "type": field_dict.get("type") or field_dict.get("field_type") or "",
+            }
+        )
+    return fields
+
+
+def classify_halo_project(project: dict | Any) -> dict:
+    """Classify a Halo project record into a practical tenant-facing kind."""
+    project_dict = normalize_halo_result(project)
+
+    summary = (project_dict.get("summary") or "").strip()
+    has_parent = project_dict.get("parent_id") not in (None, "")
+    child_count = project_dict.get("child_count")
+    has_children = isinstance(child_count, int) and child_count > 0
+    has_schedule = bool(project_dict.get("start_date") or project_dict.get("startdate")) or bool(
+        project_dict.get("target_date") or project_dict.get("targetdate")
+    )
+
+    if project_dict.get("is_project") is True and not has_parent:
+        return {
+            "project_kind": "parent_project",
+            "project_kind_confidence": "high",
+            "project_kind_reason": "Top-level record explicitly marked as a project.",
+        }
+    if has_parent and has_children:
+        return {
+            "project_kind": "subproject",
+            "project_kind_confidence": "medium",
+            "project_kind_reason": "Child record has its own descendants, so it behaves like a nested project.",
+        }
+    if has_parent and has_schedule:
+        return {
+            "project_kind": "workstream_task",
+            "project_kind_confidence": "medium",
+            "project_kind_reason": "Child record carries scheduling metadata but no stronger project typing.",
+        }
+    if has_parent:
+        return {
+            "project_kind": "child_work_item",
+            "project_kind_confidence": "low",
+            "project_kind_reason": "Child record lacks clear project/task semantics beyond hierarchy placement.",
+        }
+    if has_children:
+        return {
+            "project_kind": "parent_project",
+            "project_kind_confidence": "medium",
+            "project_kind_reason": "Top-level record has descendants and behaves like a parent project.",
+        }
+    if summary:
+        return {
+            "project_kind": "standalone_project_record",
+            "project_kind_confidence": "low",
+            "project_kind_reason": "Standalone record without enough hierarchy or typing data.",
+        }
+    return {
+        "project_kind": "unknown",
+        "project_kind_confidence": "low",
+        "project_kind_reason": "Insufficient metadata to classify the project record.",
+    }
+
+
+def summarize_halo_project(project: dict | Any) -> dict:
+    """Extract a compact project summary suitable for list/tree responses."""
+    project_dict = normalize_halo_result(project)
+    if "project_completion_percentage" not in project_dict and "client_name" not in project_dict:
+        project_dict = normalize_halo_project(project_dict)
+    classification = classify_halo_project(project_dict)
+    return {
+        "id": project_dict.get("id"),
+        "summary": project_dict.get("summary", ""),
+        "status": project_dict.get("status", ""),
+        "status_id": project_dict.get("status_id"),
+        "client_id": project_dict.get("client_id"),
+        "client_name": project_dict.get("client_name", ""),
+        "site_id": project_dict.get("site_id"),
+        "site_name": project_dict.get("site_name", ""),
+        "team_id": project_dict.get("team_id"),
+        "team": project_dict.get("team", ""),
+        "agent_id": project_dict.get("agent_id"),
+        "agent_name": project_dict.get("agent_name", ""),
+        "start_date": project_dict.get("start_date", ""),
+        "target_date": project_dict.get("target_date", ""),
+        "parent_id": project_dict.get("parent_id"),
+        "child_count": project_dict.get("child_count"),
+        "child_count_open": project_dict.get("child_count_open"),
+        "milestone_id": project_dict.get("milestone_id"),
+        "milestone_name": project_dict.get("milestone_name", ""),
+        "tickettype_id": project_dict.get("tickettype_id"),
+        "tickettype_name": project_dict.get("tickettype_name", ""),
+        "project_completion_percentage": project_dict.get("project_completion_percentage"),
+        "project_time_percentage": project_dict.get("project_time_percentage"),
+        "is_project": project_dict.get("is_project"),
+        "inactive": project_dict.get("inactive"),
+        "project_kind": classification["project_kind"],
+        "project_kind_confidence": classification["project_kind_confidence"],
+        "project_kind_reason": classification["project_kind_reason"],
+    }
+
+
+def normalize_halo_project(project: dict | Any) -> dict:
+    """Normalize a HaloPSA project record to a compact plain dict."""
+    project_dict = normalize_halo_result(project)
+    normalized = {
+        "id": project_dict.get("id"),
+        "summary": project_dict.get("summary", "") or "",
+        "details": project_dict.get("details", "") or project_dict.get("details_html", "") or "",
+        "status": project_dict.get("status_name", "") or "",
+        "status_id": project_dict.get("status_id"),
+        "client_id": get_project_client_id(project_dict),
+        "client_name": project_dict.get("client_name", "") or "",
+        "site_id": project_dict.get("site_id"),
+        "site_name": project_dict.get("site_name", "") or "",
+        "tickettype_id": project_dict.get("tickettype_id"),
+        "tickettype_name": project_dict.get("tickettype_name", "") or "",
+        "team_id": project_dict.get("team_id"),
+        "team": project_dict.get("team", "") or "",
+        "agent_id": project_dict.get("agent_id"),
+        "agent_name": project_dict.get("agent_name", "") or "",
+        "start_date": project_dict.get("startdate") or project_dict.get("projectearlieststart") or "",
+        "target_date": project_dict.get("targetdate") or project_dict.get("projectlatestend") or "",
+        "date_opened": project_dict.get("dateoccurred") or project_dict.get("datecreated") or "",
+        "date_closed": project_dict.get("dateclosed") or "",
+        "parent_id": project_dict.get("parent_id"),
+        "child_count": project_dict.get("child_count"),
+        "child_count_open": project_dict.get("child_count_open"),
+        "milestone_id": project_dict.get("milestone_id"),
+        "milestone_name": project_dict.get("milestone_name", "") or "",
+        "workflow_id": project_dict.get("workflow_id"),
+        "workflow_name": project_dict.get("workflow_name", "") or "",
+        "workflow_stage": project_dict.get("workflow_stage", "") or "",
+        "workflow_stage_id": project_dict.get("workflow_stage_id"),
+        "project_completion_percentage": project_dict.get("projectcompletionpercentage"),
+        "project_time_percentage": project_dict.get("projecttimepercentage"),
+        "project_time_budget": project_dict.get("projecttimebudget"),
+        "project_time_actual": project_dict.get("projecttimeactual"),
+        "project_money_budget": project_dict.get("projectmoneybudget"),
+        "project_money_actual": project_dict.get("projectmoneyactual"),
+        "budgettype": project_dict.get("budgettype"),
+        "budgettype_id": project_dict.get("budgettype_id"),
+        "budgettype_name": project_dict.get("budgettype_name", "") or "",
+        "contract_id": project_dict.get("contract_id"),
+        "contract_ref": project_dict.get("contract_ref"),
+        "inactive": project_dict.get("inactive"),
+        "is_project": project_dict.get("is_project"),
+        "has_been_closed": project_dict.get("hasbeenclosed"),
+        "appointment_count": project_dict.get("appointment_count"),
+        "task_count": project_dict.get("task_count"),
+        "quotation_count": project_dict.get("quotation_count"),
+        "salesorder_count": project_dict.get("salesorder_count"),
+        "purchaseorder_count": project_dict.get("purchaseorder_count"),
+        "invoice_line_count": project_dict.get("invoice_line_count"),
+        "attachments_count": len(project_dict.get("attachments") or []),
+        "documents_count": len(project_dict.get("documents") or []),
+        "timeentries_count": len(project_dict.get("timeentries") or []),
+        "budgets_count": len(project_dict.get("budgets") or []),
+        "custom_fields": _normalize_project_custom_fields(project_dict),
+        "custom_fields_count": len(project_dict.get("customfields") or []),
+        "raw": project_dict,
+    }
+    normalized.update(classify_halo_project(normalized))
+    return normalized
+
+
+async def list_projects(
+    *,
+    client_id: int | None = None,
+    parent_id: int | None = None,
+    include_inactive: bool = False,
+    only_projects: bool = True,
+) -> list[dict]:
+    """List HaloPSA projects with automatic pagination and normalization."""
+    kwargs: dict[str, Any] = {}
+    if client_id is not None:
+        kwargs["client_id"] = client_id
+    if parent_id is not None:
+        kwargs["parent_id"] = parent_id
+    if include_inactive:
+        kwargs["includeinactive"] = True
+
+    projects = await paginate(halopsa.list_projects, **kwargs)
+    normalized = [normalize_halo_project(project) for project in projects]
+    if parent_id is not None:
+        normalized = [project for project in normalized if project.get("parent_id") == parent_id]
+    if only_projects:
+        normalized = [project for project in normalized if project["is_project"] is not False]
+    return normalized
+
+
+async def get_project(project_id: int | str) -> dict:
+    """Fetch and normalize a single HaloPSA project."""
+    project = await halopsa.get_projects(str(project_id))
+    return normalize_halo_project(project)
+
+
+async def list_project_children(project_id: int | str, *, include_inactive: bool = False) -> list[dict]:
+    """List normalized child records for a HaloPSA project."""
+    return await list_projects(
+        parent_id=int(str(project_id)),
+        include_inactive=include_inactive,
+        only_projects=False,
+    )
+
+
 # =============================================================================
 # Reference Data Helpers
 # =============================================================================
@@ -1639,6 +1874,7 @@ async def get_enriched_ticket(ticket_id: int) -> EnrichedTicket:
     # Extract metadata (now includes agents_involved from actions)
     metadata = extract_metadata(ticket_dict, actions_list)
 
+    EnrichedTicket, _ = _get_ai_ticket_models()
     return EnrichedTicket(
         ticket=ticket_dict,
         actions=actions_list,
@@ -1693,6 +1929,7 @@ def extract_metadata(ticket: dict, actions: list[dict] | None = None) -> TicketM
     # Extract agents from actions if provided
     agents_involved = extract_agents_involved(actions) if actions else None
 
+    _, TicketMetadata = _get_ai_ticket_models()
     return TicketMetadata(
         ticket_id=ticket.get("id"),
         client_id=ticket.get("client_id"),
@@ -2008,6 +2245,7 @@ async def enrich_from_paginated(ticket_dict: dict) -> EnrichedTicket:
     # Fetch actions — the only API call needed
     actions = await _fetch_actions(ticket_id)
     metadata = extract_metadata(ticket_dict, actions)
+    EnrichedTicket, _ = _get_ai_ticket_models()
     return EnrichedTicket(ticket=ticket_dict, actions=actions, metadata=metadata)
 
 
