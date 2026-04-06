@@ -9,6 +9,7 @@ import logging
 
 from bifrost import data_provider, context, UserError
 from modules import halopsa
+from modules.extensions.halopsa import list_projects as list_halo_projects
 from modules.extensions.halopsa import resolve_client_id
 
 logger = logging.getLogger(__name__)
@@ -69,8 +70,10 @@ async def halo_client_sites(org_id: str = "") -> list[dict]:
     elif not context.org_id:
         return []
 
+    effective_org = org_id or context.org_id
+
     try:
-        client_id = await resolve_client_id(org_id or context.org_id)
+        client_id = await resolve_client_id(effective_org)
     except Exception as e:
         logger.warning(f"Could not resolve HaloPSA client for org {effective_org}: {e}")
         return []
@@ -97,6 +100,43 @@ async def halo_client_sites(org_id: str = "") -> list[dict]:
         results.append({"label": site_name, "value": str(site_id)})
 
     return sorted(results, key=lambda r: r["label"])
+
+
+@data_provider(
+    name="HaloPSA Projects",
+    description="Projects for the org's HaloPSA client, for use in project selector dropdowns.",
+    cache_ttl_seconds=120,
+)
+async def halo_client_projects(org_id: str = "") -> list[dict]:
+    """Returns HaloPSA projects for the org as {label, value} pairs."""
+    if org_id:
+        context.set_scope(org_id)
+    elif not context.org_id:
+        return []
+
+    effective_org = org_id or context.org_id
+
+    try:
+        client_id = await resolve_client_id(effective_org)
+    except Exception as e:
+        logger.warning(f"Could not resolve HaloPSA client for org {effective_org}: {e}")
+        return []
+
+    try:
+        projects = await list_halo_projects(client_id=client_id)
+    except Exception as e:
+        logger.error(f"Failed to list HaloPSA projects for client {client_id}: {e}")
+        raise UserError("Unable to load projects. Is the HaloPSA integration connected?")
+
+    results = []
+    for project in projects:
+        project_id = project.get("id")
+        summary = project.get("summary", "")
+        if not project_id or not summary:
+            continue
+        results.append({"label": f"#{project_id} - {summary}", "value": str(project_id)})
+
+    return sorted(results, key=lambda r: r["label"].lower())
 
 
 @data_provider(
