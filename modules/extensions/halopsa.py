@@ -1229,6 +1229,58 @@ async def list_project_children(project_id: int | str, *, include_inactive: bool
     )
 
 
+_PROJECT_MUTABLE_FIELDS: dict[str, str] = {
+    "summary": "summary",
+    "details": "details",
+    "client_id": "client_id",
+    "site_id": "site_id",
+    "parent_id": "parent_id",
+    "team_id": "team_id",
+    "agent_id": "agent_id",
+    "tickettype_id": "tickettype_id",
+    "status_id": "status_id",
+    "workflow_id": "workflow_id",
+    "workflow_stage_id": "workflow_stage_id",
+    "milestone_id": "milestone_id",
+    "start_date": "startdate",
+    "target_date": "targetdate",
+    "contract_id": "contract_id",
+}
+
+
+def _project_write_payload(fields: dict[str, Any], *, project_id: int | None = None) -> dict[str, Any]:
+    """Map normalized project field names to the Halo write payload."""
+    payload: dict[str, Any] = {}
+    if project_id is not None:
+        payload["id"] = int(project_id)
+
+    for key, value in fields.items():
+        if key not in _PROJECT_MUTABLE_FIELDS:
+            continue
+        payload[_PROJECT_MUTABLE_FIELDS[key]] = value
+
+    return payload
+
+
+async def create_project(fields: dict[str, Any]) -> dict:
+    """Create a HaloPSA project-like record and return the normalized result."""
+    payload = _project_write_payload(fields)
+    result = await halopsa.create_projects(data=payload)
+    return normalize_halo_project(result)
+
+
+async def update_project(project_id: int | str, fields: dict[str, Any]) -> dict:
+    """Update a HaloPSA project-like record and return the normalized result."""
+    payload = _project_write_payload(fields, project_id=int(str(project_id)))
+    result = await halopsa.create_projects(data=payload)
+    return normalize_halo_project(result)
+
+
+async def delete_project(project_id: int | str) -> Any:
+    """Delete a HaloPSA project-like record."""
+    return await halopsa.delete_projects(str(project_id))
+
+
 # =============================================================================
 # Reference Data Helpers
 # =============================================================================
