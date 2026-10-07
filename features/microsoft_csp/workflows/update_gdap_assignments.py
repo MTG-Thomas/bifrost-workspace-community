@@ -8,6 +8,7 @@ gdap_template table. Creates missing, updates changed, removes stale.
 import logging
 
 from bifrost import workflow, tables, context, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 from modules.microsoft.auth import get_graph_token
 from modules.microsoft.graph import GraphClient
@@ -39,6 +40,7 @@ async def update_gdap_assignments(
     Returns:
         dict with sync results
     """
+    require_platform_admin()
     provider_org_id = context.org_id
     display = tenant_name or tenant_id
 

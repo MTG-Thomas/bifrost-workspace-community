@@ -10,6 +10,7 @@ After seeding, the template is managed via the CSP app UI.
 import logging
 
 from bifrost import workflow, tables, context, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 from modules.microsoft.auth import get_graph_token
 from modules.microsoft.graph import GraphClient
@@ -44,6 +45,7 @@ async def seed_gdap_template(
     Returns:
         dict with count of groups seeded
     """
+    require_platform_admin()
     if not relationship_id and not tenant_id:
         raise UserError("Provide either relationship_id or tenant_id")
 

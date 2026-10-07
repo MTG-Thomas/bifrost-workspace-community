@@ -2,6 +2,7 @@
 HaloPSA SQL Execution Tool
 """
 from bifrost import tool, UserError
+from modules.extensions.platform_auth import require_platform_admin
 from modules.extensions.halopsa import execute_sql
 import logging
 
@@ -14,6 +15,7 @@ PREVIEW_ROWS = 20
     description="Execute a SQL query against the HaloPSA reporting database and return structured results.",
 )
 async def execute_halopsa_sql(query: str, max_rows: int = MAX_ROWS, preview: bool = False) -> dict:
+    require_platform_admin()
     stripped = query.strip().upper()
     if not stripped.startswith("SELECT") and not stripped.startswith("WITH"):
         raise UserError("Only SELECT and WITH (CTE) queries are allowed.")

@@ -9,6 +9,7 @@ approval URL.
 import logging
 
 from bifrost import workflow, tables, context, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 from modules.microsoft.auth import get_graph_token
 from modules.microsoft.graph import GraphClient
@@ -46,6 +47,7 @@ async def create_gdap_relationship(
     Returns:
         dict with relationship_id, status, approval_url
     """
+    require_platform_admin()
     provider_org_id = context.org_id
 
     # 1. Consumer domain guard

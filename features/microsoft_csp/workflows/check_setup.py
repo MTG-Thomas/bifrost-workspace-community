@@ -8,6 +8,7 @@ Returns status for each integration to drive UI state.
 import logging
 
 from bifrost import workflow, integrations
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ async def check_microsoft_setup() -> dict:
     Returns:
         dict with integration statuses and overall readiness
     """
+    require_platform_admin()
     csp_status = {
         "name": "Microsoft CSP",
         "connected": False,

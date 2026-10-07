@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 from bifrost import workflow, tables, context, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ async def save_selected_permissions(
     Returns:
         Success status and count
     """
+    require_platform_admin()
     if permissions is None:
         permissions = []
 

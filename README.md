@@ -44,6 +44,10 @@ A community [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs.
 - **Microsoft tools** — Email via Graph API, Exchange data providers
 - **Bifrost utilities** — Organization management, role management, permissions
 
+## Security boundary
+
+The HaloPSA Report Agent, AutoElevate agent tools, and Microsoft CSP workflows require a signed-in platform administrator. Their source entry points check Bifrost's trusted `context.is_platform_admin` flag before reading provider-wide data or calling a vendor. The exported `.bifrost/` registry has `authenticated` visibility and is not an authorization boundary; installing this reference workspace still requires a review of the destination registry and Integration credentials.
+
 ## Usage
 
 The recommended way to use this repo is to have an AI agent (e.g., Claude Code with the Bifrost skill) read the code here and port the relevant pieces into your own workspace. This lets you adapt modules, workflows, and patterns to your specific environment rather than trying to maintain a fork.

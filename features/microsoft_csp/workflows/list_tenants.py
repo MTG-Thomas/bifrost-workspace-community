@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 from bifrost import workflow, tables, organizations, context
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ async def list_csp_tenants() -> dict:
     Returns:
         dict with tenants list and metadata
     """
+    require_platform_admin()
     from modules.microsoft import create_csp_client
 
     # Get provider org ID from context

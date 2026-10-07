@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import httpx
 
 from bifrost import workflow, tables, context, integrations, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ async def consent_csp_tenant(
     Returns:
         Consent result with details of what was granted
     """
+    require_platform_admin()
     from modules.microsoft import create_csp_client
     from modules.microsoft.auth import get_graph_token, get_microsoft_app_credentials, get_gdap_credentials
 
