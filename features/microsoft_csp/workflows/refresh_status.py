@@ -5,6 +5,7 @@ Alias for consent_csp_tenant - both initial consent and refresh use the same flo
 """
 
 from bifrost import workflow
+from modules.extensions.platform_auth import require_platform_admin
 
 from features.microsoft_csp.workflows.consent_tenant import consent_csp_tenant
 
@@ -26,4 +27,5 @@ async def refresh_csp_status(tenant_id: str) -> dict:
     Returns:
         Consent result with details
     """
+    require_platform_admin()
     return await consent_csp_tenant(tenant_id)

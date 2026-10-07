@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 from bifrost import workflow, config
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ async def get_approval_policy() -> dict:
     Set the 'autoelevate_approval_policy' config value with your organization's
     approval policy text (approved vendors, software lists, review guidelines).
     """
+    require_platform_admin()
     policy_text = config.get("autoelevate_approval_policy", "")
     if not policy_text:
         return {
@@ -130,6 +132,7 @@ async def get_elevation_request(ticket_id: int) -> dict:
     Args:
         ticket_id: HaloPSA ticket ID
     """
+    require_platform_admin()
     from modules import autoelevate
 
     requests = await autoelevate.list_requests(take=500)
@@ -174,6 +177,7 @@ async def approve_request(
         rule_level: Rule scope — "msp" (global), "company", or "computer". Ignored if create_rule is False.
         ticket_id: HaloPSA ticket ID to add a note to (if known)
     """
+    require_platform_admin()
     from modules import autoelevate
     from modules.extensions.halopsa import create_note
 
@@ -257,6 +261,7 @@ async def deny_request(
         explanation: Your reasoning for denying (shown to techs in ticket note)
         ticket_id: HaloPSA ticket ID to add a note to and send email from (if known)
     """
+    require_platform_admin()
     from modules import autoelevate
     from modules.extensions.halopsa import create_note
 

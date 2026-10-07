@@ -8,6 +8,7 @@ service principals for Graph, Exchange, SharePoint, and Defender APIs.
 import logging
 
 from bifrost import workflow
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ async def list_available_permissions() -> dict:
     Returns:
         dict with permissions grouped by API
     """
+    require_platform_admin()
     import httpx
 
     from modules.microsoft.auth import get_graph_token

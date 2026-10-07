@@ -8,6 +8,7 @@ for any active relationships to match the template.
 import logging
 
 from bifrost import workflow, integrations
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ async def batch_update_gdap() -> dict:
     Returns:
         dict with summary counts
     """
+    require_platform_admin()
     from features.microsoft_csp.workflows.update_gdap_assignments import (
         update_gdap_assignments,
     )

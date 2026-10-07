@@ -8,6 +8,7 @@ Single API call, matched client-side for performance.
 import logging
 
 from bifrost import workflow
+from modules.extensions.platform_auth import require_platform_admin
 
 from modules.microsoft.auth import get_graph_token
 from modules.microsoft.graph import GraphClient
@@ -30,6 +31,7 @@ async def get_gdap_status() -> dict:
     Returns:
         dict with gdap_by_tenant mapping: tenant_id -> status info
     """
+    require_platform_admin()
     token = await get_graph_token("common")
     graph = GraphClient(token)
 

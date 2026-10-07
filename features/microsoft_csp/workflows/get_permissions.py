@@ -8,6 +8,7 @@ Includes the required flag to indicate which permissions are mandatory.
 import logging
 
 from bifrost import workflow, tables, context
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ async def get_selected_permissions() -> dict:
     Returns:
         dict with permissions grouped by API and type, including required flags
     """
+    require_platform_admin()
     org_id = context.org_id
 
     try:

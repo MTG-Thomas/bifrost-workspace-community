@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 from bifrost import workflow, tables, config, context, integrations, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ async def link_csp_tenant(
     Returns:
         Updated tenant status
     """
+    require_platform_admin()
     if not tenant_id:
         raise UserError("tenant_id is required")
 

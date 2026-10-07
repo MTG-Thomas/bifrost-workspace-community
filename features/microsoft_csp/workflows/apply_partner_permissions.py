@@ -16,6 +16,7 @@ Architecture:
 import logging
 
 from bifrost import workflow, tables, context, UserError
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ async def apply_partner_permissions() -> dict:
     Returns:
         dict with success status and granted permissions
     """
+    require_platform_admin()
     import httpx
 
     from modules.microsoft.auth import get_graph_token, get_microsoft_app_credentials
