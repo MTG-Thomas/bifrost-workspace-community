@@ -66,14 +66,22 @@ def check_ticket_email_target(ticket: dict, agent_id: object, recipient: str) ->
 def get_caller_scope() -> dict:
     """Return caller identity for authorization decisions.
 
-    When no organization context is available (e.g. CLI testing),
-    defaults to provider-level access.
+    Missing organization or caller identity never confers provider access.
     """
     org = getattr(context, "organization", None)
+    identified = bool(getattr(context, "user_id", None)) and not getattr(context, "is_function_key", False)
+    is_provider = identified and (
+        getattr(context, "is_platform_admin", False) is True
+        or getattr(org, "is_provider", False) is True
+    )
+    org_id = getattr(context, "org_id", None)
+    if not identified or (not is_provider and not org_id):
+        raise UserError("Caller scope could not be verified.")
     return {
-        "is_provider": getattr(org, "is_provider", True) if org else True,
+        "identified": identified,
+        "is_provider": is_provider,
         "email": getattr(context, "email", None),
-        "org_id": getattr(context, "org_id", None),
+        "org_id": org_id,
     }
 
 
