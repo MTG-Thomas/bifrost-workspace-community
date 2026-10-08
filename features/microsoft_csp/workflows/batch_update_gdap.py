@@ -7,7 +7,7 @@ for any active relationships to match the template.
 
 import logging
 
-from bifrost import workflow, integrations
+from bifrost import workflow, integrations, UserError
 from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
     category="Microsoft CSP",
     tags=["gdap", "batch", "update"],
 )
-async def batch_update_gdap() -> dict:
+async def batch_update_gdap(confirmations: dict[str, str] | None = None) -> dict:
     """
     Sync GDAP assignments for all tenants with active relationships.
 
@@ -41,16 +41,48 @@ async def batch_update_gdap() -> dict:
         "skipped": 0,
         "no_relationship": 0,
         "errors": [],
+        "previews": [],
     }
+
+    tenant_ids = [str(mapping.entity_id) for mapping in mappings]
+    if len(set(tenant_ids)) != len(tenant_ids):
+        raise UserError("Duplicate Microsoft tenant mappings need review before GDAP sync")
+
+    # Read every target before applying any changes. A confirmation is bound to
+    # each tenant's relationship, current assignments, and desired template.
+    for mapping in mappings:
+        tenant_id = str(mapping.entity_id)
+        tenant_name = getattr(mapping, "entity_name", tenant_id)
+        preview = await update_gdap_assignments(tenant_id=tenant_id, tenant_name=tenant_name)
+        if preview.get("preview"):
+            results["previews"].append(preview)
+        elif preview.get("status") == "none":
+            results["no_relationship"] += 1
+        else:
+            results["skipped"] += 1
+
+    if confirmations is None:
+        return {"success": True, "preview": True, **results}
+
+    expected = {item["tenant_id"] for item in results["previews"]}
+    if set(confirmations) != expected or any(
+        confirmations[item["tenant_id"]] != item["confirmation_digest"]
+        for item in results["previews"]
+    ):
+        raise UserError("GDAP batch preview changed; review every tenant again")
 
     for mapping in mappings:
         tenant_id = str(mapping.entity_id)
         tenant_name = getattr(mapping, "entity_name", tenant_id)
 
+        if tenant_id not in confirmations:
+            continue
+
         try:
             result = await update_gdap_assignments(
                 tenant_id=tenant_id,
                 tenant_name=tenant_name,
+                confirmation_digest=confirmations[tenant_id],
             )
 
             if result.get("success"):
@@ -75,4 +107,4 @@ async def batch_update_gdap() -> dict:
         f"{len(results['errors'])} errors"
     )
 
-    return {"success": True, **results}
+    return {"success": not results["errors"], **results}

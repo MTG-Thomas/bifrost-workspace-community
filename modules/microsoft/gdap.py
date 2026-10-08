@@ -11,6 +11,8 @@ Docs: https://learn.microsoft.com/en-us/graph/api/resources/delegatedadminrelati
 """
 
 import logging
+import hashlib
+import json
 import uuid
 from typing import Any
 
@@ -161,10 +163,37 @@ def list_assignments(
     return [a for a in assignments if a.get("status") == "active"]
 
 
+def assignment_plan(
+    relationship_id: str,
+    current: list[dict[str, Any]],
+    desired: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return a reviewable plan bound to the exact relationship and snapshots."""
+    current_by_group = {a["accessContainer"]["accessContainerId"]: a for a in current}
+    desired_by_group = {a["accessContainer"]["accessContainerId"]: a for a in desired}
+    if len(current_by_group) != len(current) or len(desired_by_group) != len(desired):
+        raise ValueError("Duplicate GDAP group assignments cannot be synchronized safely")
+    snapshot = json.dumps(
+        {
+            "relationship_id": relationship_id,
+            "current": sorted(current, key=lambda a: a["accessContainer"]["accessContainerId"]),
+            "desired": sorted(desired, key=lambda a: a["accessContainer"]["accessContainerId"]),
+        },
+        sort_keys=True, separators=(",", ":"),
+    )
+    return {
+        "confirmation_digest": hashlib.sha256(snapshot.encode()).hexdigest(),
+        "created_groups": sorted(desired_by_group.keys() - current_by_group.keys()),
+        "updated_groups": sorted(desired_by_group.keys() & current_by_group.keys()),
+        "removed_groups": sorted(current_by_group.keys() - desired_by_group.keys()),
+    }
+
+
 def sync_assignments(
     graph: GraphClient,
     relationship_id: str,
     template_assignments: list[dict[str, Any]],
+    expected_digest: str,
 ) -> dict[str, int]:
     """
     Sync access assignments on a relationship to match the template.
@@ -186,6 +215,9 @@ def sync_assignments(
     """
     base_path = f"{GDAP_BASE}/{relationship_id}/accessAssignments"
     current = list_assignments(graph, relationship_id)
+    plan = assignment_plan(relationship_id, current, template_assignments)
+    if plan["confirmation_digest"] != expected_digest:
+        raise ValueError("GDAP assignments changed since preview; review a new plan")
 
     # Index by security group ID
     current_by_group = {

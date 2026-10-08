@@ -8,6 +8,8 @@ After seeding, the template is managed via the CSP app UI.
 """
 
 import logging
+import hashlib
+import json
 
 from bifrost import workflow, tables, context, UserError
 from modules.extensions.platform_auth import require_platform_admin
@@ -28,6 +30,7 @@ TEMPLATE_TABLE = "gdap_template"
 async def seed_gdap_template(
     relationship_id: str | None = None,
     tenant_id: str | None = None,
+    confirmation_digest: str | None = None,
 ) -> dict:
     """
     Seed the GDAP template from an existing relationship's assignments.
@@ -105,18 +108,10 @@ async def seed_gdap_template(
     except Exception:
         pass  # Role names are cosmetic, not critical
 
-    # Clear existing template rows before writing
+    # Compute the new rows first. No delete occurs until the caller confirms a
+    # digest of both the existing table and the proposed replacement.
     provider_org_id = context.org_id
-    try:
-        existing = await tables.query(TEMPLATE_TABLE, scope=provider_org_id, limit=1000)
-        for doc in existing.documents:
-            await tables.delete(TEMPLATE_TABLE, id=doc.id, scope=provider_org_id)
-        logger.info(f"Cleared {len(existing.documents)} existing template rows")
-    except Exception:
-        pass  # Table may not exist yet
-
-    seeded = 0
-
+    proposed = {}
     for assignment in assignments:
         group_id = assignment["accessContainer"]["accessContainerId"]
         unified_roles = assignment["accessDetails"].get("unifiedRoles", [])
@@ -130,18 +125,53 @@ async def seed_gdap_template(
                 "roleName": role_names.get(role_def_id, role_def_id),
             })
 
-        await tables.upsert(
-            TEMPLATE_TABLE,
-            id=group_id,
-            data={
+        if group_id in proposed:
+            raise UserError("Duplicate GDAP group assignments cannot seed a template")
+        proposed[group_id] = {
                 "security_group_id": group_id,
                 "security_group_name": group_names.get(group_id, group_id),
                 "unified_roles": enriched_roles,
                 "enabled": True,
-            },
-            scope=provider_org_id,
-        )
-        seeded += 1
+            }
+
+    existing = await tables.query(TEMPLATE_TABLE, scope=provider_org_id, limit=1000)
+    if len(existing.documents) >= 1000:
+        raise UserError("GDAP template is too large for a safe replacement preview")
+    current = {doc.id: doc.data for doc in existing.documents}
+    snapshot = json.dumps(
+        {"relationship_id": relationship_id, "current": current, "proposed": proposed},
+        sort_keys=True, separators=(",", ":"),
+    )
+    digest = hashlib.sha256(snapshot.encode()).hexdigest()
+    if confirmation_digest is None:
+        return {
+            "success": True,
+            "preview": True,
+            "source_relationship_id": relationship_id,
+            "current_groups": sorted(current),
+            "proposed_groups": sorted(proposed),
+            "confirmation_digest": digest,
+        }
+    if confirmation_digest != digest:
+        raise UserError("GDAP template changed since preview; review a new plan")
+
+    latest = await tables.query(TEMPLATE_TABLE, scope=provider_org_id, limit=1000)
+    latest_snapshot = json.dumps(
+        {
+            "relationship_id": relationship_id,
+            "current": {doc.id: doc.data for doc in latest.documents},
+            "proposed": proposed,
+        },
+        sort_keys=True, separators=(",", ":"),
+    )
+    if hashlib.sha256(latest_snapshot.encode()).hexdigest() != digest:
+        raise UserError("GDAP template changed since preview; review a new plan")
+
+    for doc in latest.documents:
+        await tables.delete(TEMPLATE_TABLE, id=doc.id, scope=provider_org_id)
+    for group_id, data in proposed.items():
+        await tables.upsert(TEMPLATE_TABLE, id=group_id, data=data, scope=provider_org_id)
+    seeded = len(proposed)
 
     logger.info(f"Seeded {seeded} security group assignments to GDAP template")
 

@@ -403,7 +403,22 @@ export default function MicrosoftCspPage() {
     setActionLoading((prev) => ({ ...prev, [actionKey]: "syncing" }));
 
     try {
-      await batchSyncGdapWorkflow.execute();
+      const preview = await batchSyncGdapWorkflow.execute() as any;
+      const confirmations: Record<string, string> = {};
+      for (const tenant of preview.previews || []) {
+        const approved = window.confirm(
+          `Sync GDAP roles for ${tenant.tenant_name || tenant.tenant_id}?\n` +
+          `Relationship: ${tenant.relationship_id}\n` +
+          `Create: ${tenant.created_groups.length}, update: ${tenant.updated_groups.length}, ` +
+          `remove: ${tenant.removed_groups.length}\n` +
+          `Groups to remove: ${tenant.removed_groups.join(", ") || "none"}`
+        );
+        if (!approved) return;
+        confirmations[tenant.tenant_id] = tenant.confirmation_digest;
+      }
+      if (Object.keys(confirmations).length === 0) return;
+      const applied = await batchSyncGdapWorkflow.execute({ confirmations }) as any;
+      if (!applied.success) throw new Error("One or more GDAP tenant updates failed");
       await gdapStatusWorkflow.refetch();
 
       setActionSuccess((prev) => ({ ...prev, [actionKey]: true }));
@@ -635,7 +650,18 @@ export default function MicrosoftCspPage() {
         onOpenChange={setGdapTemplateDialogOpen}
         tenants={tenantsWithGdap}
         onSeedTemplate={async (relationshipId: string) => {
-          await seedTemplateWorkflow.execute({ relationship_id: relationshipId });
+          const preview = await seedTemplateWorkflow.execute({ relationship_id: relationshipId }) as any;
+          const approved = window.confirm(
+            `Replace the GDAP template from relationship ${relationshipId}?\n` +
+            `Current groups: ${(preview.current_groups || []).join(", ") || "none"}\n` +
+            `New groups: ${(preview.proposed_groups || []).join(", ") || "none"}`
+          );
+          if (!approved) return false;
+          await seedTemplateWorkflow.execute({
+            relationship_id: relationshipId,
+            confirmation_digest: preview.confirmation_digest,
+          });
+          return true;
         }}
         seeding={seedTemplateWorkflow.isLoading}
       />

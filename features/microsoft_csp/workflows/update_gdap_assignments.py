@@ -26,6 +26,7 @@ TEMPLATE_TABLE = "gdap_template"
 async def update_gdap_assignments(
     tenant_id: str,
     tenant_name: str | None = None,
+    confirmation_digest: str | None = None,
 ) -> dict:
     """
     Sync GDAP assignments to match the template for a single tenant.
@@ -101,8 +102,23 @@ async def update_gdap_assignments(
                 },
             })
 
-    # 4. Sync
-    counts = gdap.sync_assignments(graph, rel_id, template_assignments)
+    # 4. Preview the exact current and desired assignments before any writes.
+    current_assignments = gdap.list_assignments(graph, rel_id)
+    plan = gdap.assignment_plan(rel_id, current_assignments, template_assignments)
+    if confirmation_digest is None:
+        return {
+            "success": True,
+            "preview": True,
+            "tenant_id": tenant_id,
+            "tenant_name": display,
+            "relationship_id": rel_id,
+            **plan,
+        }
+    if confirmation_digest != plan["confirmation_digest"]:
+        raise UserError("GDAP assignments changed since preview; review a new plan")
+
+    # Recheck inside the sync helper before its first Graph mutation.
+    counts = gdap.sync_assignments(graph, rel_id, template_assignments, confirmation_digest)
 
     logger.info(
         f"GDAP sync for {display}: "
