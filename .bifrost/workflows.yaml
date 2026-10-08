@@ -442,6 +442,7 @@ workflows:
     name: Clear HaloPSA Knowledge
     path: features/halopsa_reporting/workflows/batch_analyze.py
   b3c91e47-2f8a-4d09-a1e6-7c5d820f3b14:
+    access_level: role_based
     category: CIPP
     description: Sync CIPP-managed customer tenants to Bifrost organizations.
     function_name: sync_cipp_tenants
