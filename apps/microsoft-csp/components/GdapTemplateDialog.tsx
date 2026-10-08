@@ -19,7 +19,7 @@ interface GdapTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenants: CspTenant[];
-  onSeedTemplate: (relationshipId: string) => Promise<void>;
+  onSeedTemplate: (relationshipId: string) => Promise<boolean>;
   seeding: boolean;
 }
 
@@ -72,7 +72,7 @@ export function GdapTemplateDialog({
     if (!selectedRelationshipId) return;
     setSeedSuccess(false);
     try {
-      await onSeedTemplate(selectedRelationshipId);
+      if (!(await onSeedTemplate(selectedRelationshipId))) return;
       setSeedSuccess(true);
       setTimeout(() => setSeedSuccess(false), 3000);
     } catch (error) {
