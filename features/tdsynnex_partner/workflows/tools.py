@@ -9,6 +9,7 @@ separate from any future StreamOne ION customer/order sync integration.
 from __future__ import annotations
 
 from bifrost import tool
+from modules.extensions.platform_auth import require_platform_admin
 
 
 @tool(
@@ -19,6 +20,7 @@ from bifrost import tool
 )
 async def get_order(order_no: str, order_type: str | None = None) -> dict:
     """Return order detail lookup results and a normalized summary."""
+    require_platform_admin()
     from modules.tdsynnex_partner import TDSynnexPartnerClient, get_client
 
     client = await get_client(scope="global")
@@ -53,6 +55,7 @@ async def get_order(order_no: str, order_type: str | None = None) -> dict:
 )
 async def get_shipment_details(order_no: str) -> dict:
     """Return shipment details and a normalized summary for an order."""
+    require_platform_admin()
     from modules import tdsynnex_partner
 
     client = await tdsynnex_partner.get_client(scope="global")
@@ -82,6 +85,7 @@ async def get_shipment_details(order_no: str) -> dict:
 )
 async def get_invoice(invoice_no: str, invoice_type: str = "IV") -> dict:
     """Return invoice lookup results and a normalized summary."""
+    require_platform_admin()
     from modules.tdsynnex_partner import TDSynnexPartnerClient, get_client
 
     client = await get_client(scope="global")
@@ -116,6 +120,7 @@ async def get_invoice(invoice_no: str, invoice_type: str = "IV") -> dict:
 )
 async def get_quote_status(order_no: str) -> dict:
     """Return quote status lookup results and a normalized summary."""
+    require_platform_admin()
     from modules.tdsynnex_partner import TDSynnexPartnerClient, get_client
 
     client = await get_client(scope="global")

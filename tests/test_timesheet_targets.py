@@ -63,6 +63,7 @@ class TimesheetTargetTests(unittest.TestCase):
         halo.get_actions = get_actions
         halo.get_tickets = get_tickets
         halo.get_timesheet_event = get_timesheet_event
+        halo.list_client_contracts = lambda **kwargs: None
         for name in ("create_appointment", "create_actions", "create_timesheet_event", "delete_timesheet_event"):
             setattr(halo, name, mutation(name))
         extension = types.ModuleType("modules.extensions.halopsa")
@@ -72,6 +73,10 @@ class TimesheetTargetTests(unittest.TestCase):
             return 100
 
         extension.resolve_client_id = resolve_client_id
+        async def paginate(_function, **kwargs):
+            self.calls.append(("list_contracts", kwargs["client_id"]))
+            return [{"id": 1, "active": True, "subtype": 1}]
+        extension.paginate = paginate
         self.patched = patch.dict(sys.modules, {
             "bifrost": sdk,
             "modules.halopsa": halo,
@@ -79,16 +84,34 @@ class TimesheetTargetTests(unittest.TestCase):
         })
         self.patched.start()
         self.addCleanup(self.patched.stop)
-        for name in ("shared.halopsa.tools.fill_day", "shared.halopsa.tools.timeentry", "shared.halopsa.tools._auth"):
+        for name in ("shared.halopsa.tools.fill_day", "shared.halopsa.tools.timeentry", "shared.halopsa.tools.agreements", "shared.halopsa.tools._auth"):
             sys.modules.pop(name, None)
         self.addCleanup(self.clear_imported)
         self.fill_day = importlib.import_module("shared.halopsa.tools.fill_day").fill_day
         self.timeentry = importlib.import_module("shared.halopsa.tools.timeentry")
+        self.agreements = importlib.import_module("shared.halopsa.tools.agreements")
 
     @staticmethod
     def clear_imported():
-        for name in ("shared.halopsa.tools.fill_day", "shared.halopsa.tools.timeentry", "shared.halopsa.tools._auth"):
+        for name in ("shared.halopsa.tools.fill_day", "shared.halopsa.tools.timeentry", "shared.halopsa.tools.agreements", "shared.halopsa.tools._auth"):
             sys.modules.pop(name, None)
+
+    def test_agreements_require_mapped_client_or_platform_admin(self):
+        with self.assertRaises(UserError):
+            asyncio.run(self.agreements.get_customer_agreements(999))
+        self.assertNotIn(("list_contracts", 999), self.calls)
+        self.context.user_id = None
+        with self.assertRaises(UserError):
+            asyncio.run(self.agreements.get_customer_agreements(100))
+        self.context.user_id = "ordinary-user"
+        self.context.is_function_key = True
+        with self.assertRaises(UserError):
+            asyncio.run(self.agreements.get_customer_agreements(100))
+        self.context.is_function_key = False
+        self.assertTrue(asyncio.run(self.agreements.get_customer_agreements(100))["has_unified_it"])
+        self.context.is_platform_admin = True
+        asyncio.run(self.agreements.get_customer_agreements(999))
+        self.assertIn(("list_contracts", 999), self.calls)
 
     @staticmethod
     def block(action, **extra):

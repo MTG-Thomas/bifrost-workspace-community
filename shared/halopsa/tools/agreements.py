@@ -7,6 +7,7 @@ Look up what service agreements a client has (Unified IT, Managed IT, etc.).
 from bifrost import tool
 from modules import halopsa
 from modules.extensions.halopsa import paginate
+from shared.halopsa.tools._auth import check_client_target
 
 # Lookup 76 = agreement subtypes. These are the effective agreement levels.
 AGREEMENT_TYPES = {
@@ -31,6 +32,7 @@ async def get_customer_agreements(client_id: int) -> dict:
     Args:
         client_id: The HaloPSA client ID.
     """
+    await check_client_target(client_id)
     contracts = await paginate(
         halopsa.list_client_contracts,
         client_id=client_id,
