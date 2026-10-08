@@ -22,6 +22,7 @@ import httpx
 
 from bifrost import workflow, tables, context, integrations, UserError
 from modules.extensions.platform_auth import require_platform_admin
+from modules.extensions.microsoft_permission_policy import require_allowed_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +169,7 @@ async def consent_csp_tenant(
     except Exception as e:
         logger.warning(f"Could not read permissions table: {e}")
         all_permissions = []
+    await require_allowed_permissions(all_permissions, provider_org_id)
 
     # Separate delegated and application permissions
     delegated_permissions = [p for p in all_permissions if p.get("permission_type") == "delegated"]

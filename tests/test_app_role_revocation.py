@@ -84,6 +84,14 @@ class AppRoleRevocationTests(unittest.TestCase):
         sdk.UserError = UserError
         sdk.workflow = lambda *args, **kwargs: lambda function: function
         sdk.tables = Tables()
+        async def policy_get(key, default=None, scope=None):
+            return [{
+                "api_id": "00000003-0000-0000-c000-000000000000",
+                "permission_name": "Role.Read.All",
+                "permission_type": "application",
+            }]
+
+        sdk.config = SimpleNamespace(get=policy_get)
         auth = types.ModuleType("modules.microsoft.auth")
 
         async def app_credentials():
@@ -103,6 +111,7 @@ class AppRoleRevocationTests(unittest.TestCase):
         self.addCleanup(self.patched.stop)
         self.names = (
             "modules.extensions.platform_auth",
+            "modules.extensions.microsoft_permission_policy",
             "features.microsoft_csp.workflows.save_permissions",
             "features.microsoft_csp.workflows.apply_partner_permissions",
         )
@@ -115,10 +124,10 @@ class AppRoleRevocationTests(unittest.TestCase):
             "features.microsoft_csp.workflows.apply_partner_permissions"
         ).apply_partner_permissions
         self.permission = {
-            "api_id": "resource-api", "api_name": "Resource API",
+            "api_id": "00000003-0000-0000-c000-000000000000", "api_name": "Microsoft Graph",
             "permission_name": "Role.Read.All", "permission_type": "application",
         }
-        self.key = "resource-api:Role.Read.All:application"
+        self.key = "00000003-0000-0000-c000-000000000000:Role.Read.All:application"
 
     def clear_imported(self):
         for name in self.names:
