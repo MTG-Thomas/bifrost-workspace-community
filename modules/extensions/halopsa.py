@@ -291,18 +291,22 @@ async def create_ticket(
         matching_agent = await _find_agent_by_email(user_email)
         matching_user = await find_user_by_email(user_email, client_id=client_id)
 
-    # Check for existing ticket via match_id
+    # A match ID is only idempotent within its target HaloPSA client.
+    match_key = f"{client_id}:{match_id}" if match_id else None
+
+    # Check for an existing ticket in this client's namespace.
     ticket_id = None
 
-    if match_id:
+    if match_key:
         try:
-            existing = await tables.get(MATCH_TABLE, match_id)
+            existing = await tables.get(MATCH_TABLE, match_key)
             if existing and existing.data.get("ticket_id"):
                 existing_ticket_id = existing.data["ticket_id"]
                 # Verify ticket is still open
                 try:
                     ticket = await halopsa.get_tickets(str(existing_ticket_id))
-                    if ticket and not ticket.get("hasbeenclosed", False):
+                    if (ticket and str(ticket.get("client_id")) == str(client_id)
+                            and not ticket.get("hasbeenclosed", False)):
                         logger.info(f"Reusing existing ticket {existing_ticket_id} for match_id {match_id}")
                         # Still add initial note if requested (matches Rewst behavior)
                         if initial_note or context_details:
@@ -388,12 +392,12 @@ async def create_ticket(
     logger.info(f"Created HaloPSA ticket {ticket_id}")
 
     # Store match_id -> ticket_id mapping
-    if match_id:
+    if match_key:
         try:
             await tables.upsert(
                 MATCH_TABLE,
-                match_id,
-                {"ticket_id": ticket_id, "summary": summary},
+                match_key,
+                {"ticket_id": ticket_id, "client_id": client_id, "summary": summary},
             )
         except Exception as e:
             logger.warning(f"Failed to store match_id mapping: {e}")
