@@ -7,6 +7,7 @@ approval URL.
 """
 
 import logging
+from html import escape
 
 from bifrost import workflow, tables, context, UserError
 from modules.extensions.platform_auth import require_platform_admin
@@ -126,26 +127,29 @@ async def create_gdap_relationship(
         try:
             from modules.extensions.sendgrid import send_email as sg_send
             display_name = tenant_name or tenant_id
+            safe_name = escape(display_name, quote=True)
+            safe_url = escape(approval_url, quote=True)
+            subject_name = display_name.replace("\r", " ").replace("\n", " ")
 
             html_body = f"""
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
   <h2 style="color: #1a1a1a;">GDAP Relationship Request</h2>
   <p>Hello,</p>
-  <p>We've submitted a Granular Delegated Admin Privileges (GDAP) request for <strong>{display_name}</strong>.</p>
+  <p>We've submitted a Granular Delegated Admin Privileges (GDAP) request for <strong>{safe_name}</strong>.</p>
   <p>GDAP allows us to securely manage your Microsoft 365 environment with the minimum permissions needed. This replaces the older DAP (Delegated Admin Privileges) model with more granular, time-limited access.</p>
   <p>Please click the button below to review and approve the request in the Microsoft Admin Portal:</p>
   <p style="text-align: center; margin: 30px 0;">
-    <a href="{approval_url}" style="background-color: #0078D4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review &amp; Approve</a>
+    <a href="{safe_url}" style="background-color: #0078D4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review &amp; Approve</a>
   </p>
   <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this URL into your browser:</p>
-  <p style="color: #666; font-size: 14px; word-break: break-all;">{approval_url}</p>
+  <p style="color: #666; font-size: 14px; word-break: break-all;">{safe_url}</p>
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
   <p style="color: #999; font-size: 12px;">This is an automated message from your IT service provider.</p>
 </div>
 """
             await sg_send(
                 recipient=admin_email,
-                subject=f"GDAP Approval Request — {display_name}",
+                subject=f"GDAP Approval Request — {subject_name}",
                 body=f"Please approve the GDAP request for {display_name}: {approval_url}",
                 html_body=html_body,
             )

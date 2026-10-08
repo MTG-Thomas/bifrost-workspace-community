@@ -5,7 +5,7 @@ Reusable, LLM-friendly note/action operations for any Bifrost agent.
 """
 
 import logging
-import re
+from html import escape
 from typing import Optional
 
 import markdown
@@ -19,14 +19,9 @@ from shared.halopsa.tools.timeentry import _resolve_caller_agent
 
 logger = logging.getLogger(__name__)
 
-_HTML_TAG_RE = re.compile(r"<(?:p|br|div|ul|ol|li|h[1-6]|strong|em|a |table|tr|td|th)[\s>/]", re.IGNORECASE)
-
-
 def _to_html(text: str) -> str:
-    """Convert note text to HTML. Pass through if already HTML, otherwise treat as markdown."""
-    if _HTML_TAG_RE.search(text):
-        return text
-    return markdown.markdown(text)
+    """Render untrusted note text as Markdown without accepting raw HTML."""
+    return markdown.markdown(escape(text, quote=True))
 
 
 async def _try_resolve_agent() -> dict | None:

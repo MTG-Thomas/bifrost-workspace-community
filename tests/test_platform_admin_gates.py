@@ -23,6 +23,7 @@ class UserError(Exception):
 class PlatformAdminGateTests(unittest.TestCase):
     def setUp(self):
         self.calls = []
+        self.report_rows = [{"customer": "synthetic"}]
         self.context = SimpleNamespace(
             user_id="ordinary-user",
             is_platform_admin=False,
@@ -39,7 +40,7 @@ class PlatformAdminGateTests(unittest.TestCase):
 
         async def execute_sql(query):
             self.calls.append(("report", query))
-            return [{"customer": "synthetic"}]
+            return self.report_rows
 
         extension.execute_sql = execute_sql
         microsoft = types.ModuleType("modules.microsoft")
@@ -148,6 +149,63 @@ class PlatformAdminGateTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["rows"], [{"customer": "synthetic"}])
         self.assertEqual(len(self.calls), 1)
+
+    def test_report_cap_handles_top_in_string_and_cte(self):
+        self.context.user_id = "admin-user"
+        self.context.is_platform_admin = True
+        self.report_rows = [{"customer": str(number)} for number in range(5)]
+        from features.halopsa_reporting.workflows.execute_halopsa_sql import execute_halopsa_sql
+        result = asyncio.run(execute_halopsa_sql("SELECT 'TOP 1' AS marker", max_rows=2))
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertTrue(result["truncated"])
+        self.assertTrue(self.calls[-1][1].startswith("SELECT TOP 3"))
+        result = asyncio.run(execute_halopsa_sql("WITH cte AS (SELECT 1 AS id) SELECT * FROM cte", max_rows=2))
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertTrue(result["truncated"])
+
+    def test_gdap_email_escapes_html_fields(self):
+        self.context.user_id = "admin-user"
+        self.context.is_platform_admin = True
+        self.context.org_id = "provider-org"
+        sdk = sys.modules["bifrost"]
+
+        async def query(*args, **kwargs):
+            return SimpleNamespace(documents=[SimpleNamespace(data={
+                "unified_roles": [{"roleDefinitionId": "synthetic-role"}],
+            })])
+
+        async def token(*args):
+            return "synthetic-token"
+
+        sdk.tables.query = query
+        sys.modules["modules.microsoft.auth"].get_graph_token = token
+        gdap = sys.modules["modules.microsoft.gdap"]
+        gdap.list_relationships = lambda *args, **kwargs: []
+        gdap.find_best_relationship = lambda items: None
+        gdap.get_approval_url = lambda identity: "https://example.invalid/synthetic"
+        gdap.create_relationship = lambda *args: {
+            "id": "synthetic-id",
+            "approval_url": 'https://example.invalid/?x=" onclick="bad()',
+        }
+        sent = []
+
+        async def send_email(**kwargs):
+            sent.append(kwargs)
+
+        sendgrid = types.ModuleType("modules.extensions.sendgrid")
+        sendgrid.send_email = send_email
+        with patch.dict(sys.modules, {"modules.extensions.sendgrid": sendgrid}):
+            from features.microsoft_csp.workflows.create_gdap_relationship import create_gdap_relationship
+            asyncio.run(create_gdap_relationship(
+                "synthetic-tenant", tenant_name="<img src=x onerror=bad()>\r\nInjected:",
+                send_email=True, admin_email="admin@example.invalid",
+            ))
+        self.assertEqual(len(sent), 1)
+        self.assertIn("&lt;img", sent[0]["html_body"])
+        self.assertNotIn("<img", sent[0]["html_body"])
+        self.assertIn("&quot; onclick=&quot;", sent[0]["html_body"])
+        self.assertNotIn("\r", sent[0]["subject"])
+        self.assertNotIn("\n", sent[0]["subject"])
 
 
 if __name__ == "__main__":
