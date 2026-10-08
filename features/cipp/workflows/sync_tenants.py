@@ -14,9 +14,11 @@ customer tenants are onboarded in CIPP.
 """
 
 from bifrost import integrations, organizations
+from modules.extensions.platform_auth import require_platform_admin
 
 
 async def sync_cipp_tenants() -> dict:
+    require_platform_admin()
     from modules.cipp import get_client
 
     client = await get_client()

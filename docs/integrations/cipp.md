@@ -177,6 +177,9 @@ Set the data provider on the integration:
 
 ## Step 6 — Run the sync
 
+Run as a platform administrator. The sync creates organizations and CIPP integration
+mappings across all managed tenants.
+
 ```bash
 bifrost run features/cipp/workflows/sync_tenants.py --workflow sync_cipp_tenants
 ```

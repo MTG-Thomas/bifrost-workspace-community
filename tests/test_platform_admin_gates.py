@@ -79,6 +79,7 @@ class PlatformAdminGateTests(unittest.TestCase):
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
                 "features.halopsa_reporting.workflows.knowledge_mgmt",
+                "features.cipp.workflows.sync_tenants",
                 "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
@@ -92,6 +93,7 @@ class PlatformAdminGateTests(unittest.TestCase):
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
                 "features.halopsa_reporting.workflows.knowledge_mgmt",
+                "features.cipp.workflows.sync_tenants",
                 "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
@@ -238,6 +240,12 @@ class PlatformAdminGateTests(unittest.TestCase):
         self.context.is_platform_admin = True
         asyncio.run(save_halopsa_report(name="Synthetic", description="test", sql="SELECT 1"))
         self.assertEqual(self.calls[0][0], "knowledge-store")
+
+    def test_cipp_sync_rejects_ordinary_before_vendor_access(self):
+        from features.cipp.workflows.sync_tenants import sync_cipp_tenants
+        with self.assertRaisesRegex(UserError, "Platform administrator"):
+            asyncio.run(sync_cipp_tenants())
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":
