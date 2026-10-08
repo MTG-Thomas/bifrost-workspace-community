@@ -7,6 +7,7 @@ Data providers that use Exchange Online PowerShell cmdlets.
 import logging
 
 from bifrost import data_provider, context, UserError
+from modules.extensions.platform_auth import require_org_access
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,9 @@ async def list_shared_mailboxes(org_id: str = "", domain: str = "") -> list[dict
     """
     from modules.microsoft.exchange import create_exchange_client
 
+    effective_org = require_org_access(org_id)
     if org_id:
         context.set_scope(org_id)
-    effective_org = org_id or context.org_id
 
     try:
         exchange = await create_exchange_client(org_id=effective_org)

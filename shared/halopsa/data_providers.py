@@ -11,7 +11,7 @@ from bifrost import data_provider, context, UserError
 from modules import halopsa
 from modules.extensions.halopsa import list_projects as list_halo_projects
 from modules.extensions.halopsa import resolve_client_id
-from modules.extensions.platform_auth import require_platform_admin
+from modules.extensions.platform_auth import require_org_access, require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +66,9 @@ async def halopsa_clients() -> list[dict]:
 )
 async def halo_client_sites(org_id: str = "") -> list[dict]:
     """Returns active, non-inventory sites for the org's linked HaloPSA client."""
+    effective_org = require_org_access(org_id)
     if org_id:
         context.set_scope(org_id)
-    elif not context.org_id:
-        return []
-
-    effective_org = org_id or context.org_id
 
     try:
         client_id = await resolve_client_id(effective_org)
@@ -110,12 +107,9 @@ async def halo_client_sites(org_id: str = "") -> list[dict]:
 )
 async def halo_client_projects(org_id: str = "") -> list[dict]:
     """Returns HaloPSA projects for the org as {label, value} pairs."""
+    effective_org = require_org_access(org_id)
     if org_id:
         context.set_scope(org_id)
-    elif not context.org_id:
-        return []
-
-    effective_org = org_id or context.org_id
 
     try:
         client_id = await resolve_client_id(effective_org)
@@ -147,13 +141,12 @@ async def halo_client_projects(org_id: str = "") -> list[dict]:
 )
 async def halo_open_tickets(org_id: str = "") -> list[dict]:
     """Returns open tickets for the org as {label, value} pairs."""
+    effective_org = require_org_access(org_id)
     if org_id:
         context.set_scope(org_id)
-    elif not context.org_id:
-        return []
 
     try:
-        client_id = await resolve_client_id(org_id)
+        client_id = await resolve_client_id(effective_org)
         result = await halopsa.list_tickets(
             client_id=client_id,
             open_only=True,
