@@ -17,6 +17,7 @@ import logging
 
 from bifrost import workflow, tables, context, UserError
 from modules.extensions.platform_auth import require_platform_admin
+from modules.extensions.microsoft_permission_policy import require_allowed_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ async def apply_partner_permissions() -> dict:
         raise UserError(f"Permission state could not be loaded. ({e})")
     if len(result.documents) >= 1000 or len(pending_result.documents) >= 1000:
         raise UserError("Permission state is too large to reconcile safely.")
+    await require_allowed_permissions(all_permissions, org_id)
 
     if not all_permissions and not pending_revocations:
         raise UserError("No permissions configured. Please select permissions first.")

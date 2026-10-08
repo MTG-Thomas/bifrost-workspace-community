@@ -1,4 +1,13 @@
 configs:
+  # Optional Microsoft scopes/app roles approved by the platform operator.
+  # JSON array of {api_id, permission_name, permission_type}; empty denies all
+  # optional grants. The two required bootstrap delegated scopes are built in.
+  microsoft_allowed_permissions:
+    id: microsoft_allowed_permissions
+    key: microsoft_allowed_permissions
+    type: string
+    value: "[]"
+
   # AutoElevate approval policy text — paste your organization's approval policy here.
   # The Elevation Agent reads this to make approve/deny decisions.
   autoelevate_approval_policy:

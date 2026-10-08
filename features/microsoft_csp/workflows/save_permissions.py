@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from bifrost import workflow, tables, context, UserError
 from modules.extensions.platform_auth import require_platform_admin
+from modules.extensions.microsoft_permission_policy import require_allowed_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ async def save_selected_permissions(
 
     # Get platform org scope
     org_id = context.org_id
+    await require_allowed_permissions(permissions, org_id)
 
     # Build final permissions list, ensuring required permissions are included
     final_permissions = []
