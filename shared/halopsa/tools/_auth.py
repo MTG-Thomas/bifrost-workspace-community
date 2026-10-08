@@ -14,10 +14,10 @@ def normalize_record(value: object) -> dict:
 
 async def check_client_target(client_id: object) -> None:
     """Bind a caller-selected Halo client to the caller's mapped organization."""
+    if not getattr(context, "user_id", None) or getattr(context, "is_function_key", False):
+        raise UserError("Client access could not be verified.")
     if (
-        getattr(context, "user_id", None)
-        and getattr(context, "is_platform_admin", False) is True
-        and not getattr(context, "is_function_key", False)
+        getattr(context, "is_platform_admin", False) is True
     ):
         return
     if client_id is None:

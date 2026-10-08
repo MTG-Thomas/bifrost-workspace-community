@@ -66,6 +66,7 @@ class PlatformAdminGateTests(unittest.TestCase):
             if name.startswith("features.microsoft_csp.workflows.") or name in (
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
+                "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
                 sys.modules.pop(name, None)
@@ -77,6 +78,7 @@ class PlatformAdminGateTests(unittest.TestCase):
             if name.startswith("features.microsoft_csp.workflows.") or name in (
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
+                "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
                 sys.modules.pop(name, None)
@@ -85,6 +87,7 @@ class PlatformAdminGateTests(unittest.TestCase):
         files = [
             ROOT / "features" / "halopsa_reporting" / "workflows" / "execute_halopsa_sql.py",
             ROOT / "features" / "autoelevate" / "workflows" / "tools.py",
+            ROOT / "features" / "tdsynnex_partner" / "workflows" / "tools.py",
             *sorted(CSP.glob("*.py")),
         ]
         for file in files:
@@ -120,7 +123,7 @@ class PlatformAdminGateTests(unittest.TestCase):
                 with self.assertRaisesRegex(UserError, "Platform administrator"):
                     asyncio.run(function(**arguments))
                 seen.append(function.__name__)
-        self.assertEqual(len(seen), 19)
+        self.assertEqual(len(seen), 23)
         self.assertEqual(self.calls, [])
 
     def test_absent_identity_and_function_keys_fail_closed(self):
