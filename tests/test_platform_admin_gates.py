@@ -35,6 +35,16 @@ class PlatformAdminGateTests(unittest.TestCase):
         sdk.workflow = sdk.tool = lambda *args, **kwargs: lambda function: function
         sdk.config = SimpleNamespace(get=lambda key, default=None: default)
         sdk.tables = sdk.integrations = sdk.organizations = SimpleNamespace()
+        async def store(**kwargs):
+            self.calls.append(("knowledge-store", kwargs))
+            return kwargs["key"]
+        async def search(**kwargs):
+            self.calls.append(("knowledge-search", kwargs))
+            return []
+        sdk.knowledge = SimpleNamespace(store=store, search=search)
+        analysis = types.ModuleType("features.halopsa_reporting.services.analysis")
+        analysis.NS_REPORTS = "halopsa-reports"
+        analysis.NS_RULES = "halopsa-schema-rules"
 
         extension = types.ModuleType("modules.extensions.halopsa")
 
@@ -60,6 +70,7 @@ class PlatformAdminGateTests(unittest.TestCase):
             "modules.microsoft.auth": auth,
             "modules.microsoft.graph": graph,
             "httpx": httpx,
+            "features.halopsa_reporting.services.analysis": analysis,
         })
         self.patched.start()
         self.addCleanup(self.patched.stop)
@@ -67,6 +78,7 @@ class PlatformAdminGateTests(unittest.TestCase):
             if name.startswith("features.microsoft_csp.workflows.") or name in (
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
+                "features.halopsa_reporting.workflows.knowledge_mgmt",
                 "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
@@ -79,6 +91,7 @@ class PlatformAdminGateTests(unittest.TestCase):
             if name.startswith("features.microsoft_csp.workflows.") or name in (
                 "features.autoelevate.workflows.tools",
                 "features.halopsa_reporting.workflows.execute_halopsa_sql",
+                "features.halopsa_reporting.workflows.knowledge_mgmt",
                 "features.tdsynnex_partner.workflows.tools",
                 "modules.extensions.platform_auth",
             ):
@@ -206,6 +219,25 @@ class PlatformAdminGateTests(unittest.TestCase):
         self.assertIn("&quot; onclick=&quot;", sent[0]["html_body"])
         self.assertNotIn("\r", sent[0]["subject"])
         self.assertNotIn("\n", sent[0]["subject"])
+
+    def test_report_knowledge_requires_platform_admin(self):
+        from features.halopsa_reporting.workflows.knowledge_mgmt import (
+            save_halopsa_report, save_halopsa_rule, search_halopsa_knowledge,
+        )
+        calls = (
+            (save_halopsa_report, {"name": "Synthetic", "description": "test", "sql": "SELECT 1"}),
+            (save_halopsa_rule, {"rule": "Synthetic rule"}),
+            (search_halopsa_knowledge, {"query": "Synthetic"}),
+        )
+        for function, kwargs in calls:
+            with self.subTest(function=function.__name__):
+                with self.assertRaisesRegex(UserError, "Platform administrator"):
+                    asyncio.run(function(**kwargs))
+        self.assertEqual(self.calls, [])
+        self.context.user_id = "admin-user"
+        self.context.is_platform_admin = True
+        asyncio.run(save_halopsa_report(name="Synthetic", description="test", sql="SELECT 1"))
+        self.assertEqual(self.calls[0][0], "knowledge-store")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ The storage logic lives in features.halopsa_reporting.services.analysis.
 
 from bifrost import tool, knowledge, UserError
 from features.halopsa_reporting.services.analysis import NS_REPORTS, NS_RULES
+from modules.extensions.platform_auth import require_platform_admin
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ async def save_halopsa_report(
     tables_used: str = "",
     group: str = "",
 ) -> dict:
+    require_platform_admin()
     key = f"report-user-{name.lower().replace(' ', '-')[:60]}"
     content = (
         f"Report: {name}\n"
@@ -42,6 +44,7 @@ async def save_halopsa_rule(
     rule: str, category: str = "general", evidence: str = "",
     confidence: str = "high", source_report: str = "",
 ) -> dict:
+    require_platform_admin()
     rule_slug = rule.lower().replace(" ", "-")[:80]
     key = f"rule-{category.lower().replace(' ', '-')}-{rule_slug}"
     content = (
@@ -60,6 +63,7 @@ async def save_halopsa_rule(
 async def search_halopsa_knowledge(
     query: str, search_reports: bool = True, search_rules: bool = True, limit: int = 5,
 ) -> dict:
+    require_platform_admin()
     results = {"reports": [], "rules": [], "query": query}
     namespaces = []
     if search_reports: namespaces.append(NS_REPORTS)
