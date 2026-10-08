@@ -23,6 +23,12 @@ tables:
   248bbd56-63dd-4f6c-a282-e2f73c13c3b9:
     id: 248bbd56-63dd-4f6c-a282-e2f73c13c3b9
     name: gdap_template
+  3a00677f-b7c2-497b-b57c-e3d5bbc532ba:
+    id: 3a00677f-b7c2-497b-b57c-e3d5bbc532ba
+    name: microsoft_pending_app_role_revocations
+  5982d1c8-ca74-4632-bd9f-5f2baba5e158:
+    id: 5982d1c8-ca74-4632-bd9f-5f2baba5e158
+    name: microsoft_managed_app_role_assignments
   7792bf19-b7fd-4b12-b3cb-e24106961911:
     id: 7792bf19-b7fd-4b12-b3cb-e24106961911
     name: csp_tenant_status

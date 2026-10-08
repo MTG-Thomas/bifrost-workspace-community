@@ -14,6 +14,7 @@ from modules.extensions.platform_auth import require_platform_admin
 logger = logging.getLogger(__name__)
 
 PERMISSIONS_TABLE = "microsoft_selected_permissions"
+PENDING_REVOCATIONS_TABLE = "microsoft_pending_app_role_revocations"
 
 # Required delegated permissions - needed to install app permissions
 # These are always included and cannot be deselected
@@ -94,14 +95,47 @@ async def save_selected_permissions(
             final_permissions.append(perm_with_flag)
             added_keys.add(key)
 
+    # Retain deselected application roles until the external assignment has
+    # actually been removed. Losing this intent would leave a silent grant.
+    await tables.upsert(
+        PENDING_REVOCATIONS_TABLE,
+        id="__initialized__",
+        data={"pending": False},
+        scope=org_id,
+    )
+    selected_keys = {
+        (p["api_id"], p["permission_name"])
+        for p in final_permissions if p["permission_type"] == "application"
+    }
+
     # Clear existing permissions and save new ones
     try:
         existing = await tables.query(PERMISSIONS_TABLE, scope=org_id, limit=1000)
-        for doc in existing.documents:
-            await tables.delete(PERMISSIONS_TABLE, doc.id, scope=org_id)
-        logger.info(f"Deleted {len(existing.documents)} existing permissions")
     except Exception as e:
-        logger.debug(f"No existing permissions to delete: {e}")
+        raise UserError("Existing permissions could not be loaded safely.") from e
+    if len(existing.documents) >= 1000:
+        raise UserError("Existing permission set is too large to replace safely.")
+    for doc in existing.documents:
+        old = doc.data
+        if old.get("permission_type") == "application" and (
+            old.get("api_id"), old.get("permission_name")
+        ) not in selected_keys:
+            await tables.upsert(
+                PENDING_REVOCATIONS_TABLE,
+                id=doc.id,
+                data={**old, "pending": True},
+                scope=org_id,
+            )
+    for doc in existing.documents:
+        await tables.delete(PERMISSIONS_TABLE, doc.id, scope=org_id)
+
+    # A reselected role must not be revoked by an older pending entry.
+    for api_id, permission_name in selected_keys:
+        await tables.delete(
+            PENDING_REVOCATIONS_TABLE,
+            f"{api_id}:{permission_name}:application",
+            scope=org_id,
+        )
 
     # Save new permissions
     now = datetime.now(timezone.utc).isoformat()
