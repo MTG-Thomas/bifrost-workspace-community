@@ -24,6 +24,7 @@ workflows:
     - batch
     - update
   0e86a4b8-046e-4b0b-a76d-37f62c13f22c:
+    access_level: role_based
     description: Save a HaloPSA schema rule or pattern to knowledge for future SQL
       generation.
     function_name: save_halopsa_rule
@@ -98,6 +99,7 @@ workflows:
     path: shared/microsoft/tools/email.py
     type: tool
   2c10be89-e286-47f7-9fef-276d0f23dc4c:
+    access_level: role_based
     description: Search HaloPSA knowledge base for relevant reports and schema rules.
     function_name: search_halopsa_knowledge
     id: 2c10be89-e286-47f7-9fef-276d0f23dc4c
@@ -367,6 +369,7 @@ workflows:
     path: features/halopsa_reporting/workflows/batch_analyze.py
     type: data_provider
   9dd8f037-400b-47c2-be1c-55d42a259541:
+    access_level: role_based
     description: Save a working HaloPSA SQL report to knowledge for future reuse.
     function_name: save_halopsa_report
     id: 9dd8f037-400b-47c2-be1c-55d42a259541
@@ -473,6 +476,7 @@ workflows:
     - notes
     type: tool
   c943c063-7ef0-4316-b8ff-3fd02c1b7869:
+    access_level: role_based
     description: Execute a SQL query against the HaloPSA reporting database and return
       structured results.
     function_name: execute_halopsa_sql
