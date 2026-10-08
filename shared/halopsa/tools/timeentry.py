@@ -24,7 +24,14 @@ from typing import Optional
 from bifrost import tool, UserError
 from modules import halopsa
 
-from shared.halopsa.tools._auth import get_caller_scope
+from shared.halopsa.tools._auth import (
+    check_action_owner,
+    check_appointment_owner,
+    check_client_target,
+    check_ticket_email_target,
+    get_caller_scope,
+    normalize_record,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +334,7 @@ async def log_quicktime(
             "subject": subject or default_subject,
         }
     else:
+        await check_client_target(client_id)
         default_subject = f"Quick Time - {agent_name} - {now_str}"
 
         event_data = {
@@ -414,6 +422,7 @@ async def complete_appointment(
         raise UserError(f"Failed to fetch appointment {appointment_id}: {e}")
 
     appt = appt if isinstance(appt, dict) else dict(appt) if appt else {}
+    check_appointment_owner(appt, agent["id"])
 
     if not complete_date:
         complete_date = appt.get("end_date") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000")
@@ -495,6 +504,14 @@ async def delete_break_entry(
     Args:
         event_id: The timesheet event ID (from get_my_timesheet results).
     """
+    agent = await _resolve_caller_agent()
+    try:
+        event = normalize_record(await halopsa.get_timesheet_event(str(event_id)))
+    except Exception as e:
+        raise UserError("Break entry access could not be verified.") from e
+    if str(event.get("agent_id")) != str(agent["id"]) or str(event.get("event_type")) != "1":
+        raise UserError("Break entry access denied.")
+
     try:
         result = await halopsa.delete_timesheet_event(str(event_id))
     except Exception as e:
@@ -536,6 +553,12 @@ async def adjust_time_entry(
         end_date: Optional new end time ISO string.
     """
     agent = await _resolve_caller_agent()
+
+    try:
+        existing_action = normalize_record(await halopsa.get_actions(str(action_id)))
+    except Exception as e:
+        raise UserError("Action access could not be verified.") from e
+    check_action_owner(existing_action, agent["id"], ticket_id)
 
     action_data = {
         "id": action_id,
@@ -601,6 +624,12 @@ async def send_ticket_email(
         raise UserError("Email body (note_html) is required.")
 
     agent = await _resolve_caller_agent()
+
+    try:
+        ticket = normalize_record(await halopsa.get_tickets(str(ticket_id)))
+    except Exception as e:
+        raise UserError("Ticket access could not be verified.") from e
+    check_ticket_email_target(ticket, agent["id"], email_to)
 
     action_data = {
         "ticket_id": ticket_id,
