@@ -65,7 +65,9 @@ async def link_csp_tenant(
     try:
         existing = await tables.get(STATUS_TABLE, tenant_id, scope=provider_org_id)
         existing_data = existing.data if existing else {}
-    except Exception:
+    except Exception as error:
+        if org_id is None:
+            raise UserError("Existing tenant link could not be verified.") from error
         existing_data = {}
 
     # Build updated status
@@ -84,8 +86,21 @@ async def link_csp_tenant(
         "updated_at": now,
     }
 
-    # Save to status table (scoped to provider org)
-    await tables.upsert(STATUS_TABLE, id=tenant_id, data=status_data, scope=provider_org_id)
+    if org_id:
+        current_mapping = await integrations.get_mapping("Microsoft", scope=org_id)
+        if current_mapping and current_mapping.entity_id not in (None, tenant_id):
+            raise UserError("Organization is already linked to another Microsoft tenant.")
+
+    previous_org_id = existing_data.get("bifrost_org_id")
+    if previous_org_id and previous_org_id != org_id:
+        # Remove only values that still point to this tenant. Another link may
+        # have replaced one of them since the status row was written.
+        previous_mapping = await integrations.get_mapping("Microsoft", scope=previous_org_id)
+        if previous_mapping and previous_mapping.entity_id == tenant_id:
+            await integrations.delete_mapping("Microsoft", scope=previous_org_id)
+        previous_config = await config.get("entra_tenant_id", scope=previous_org_id)
+        if previous_config == tenant_id:
+            await config.delete("entra_tenant_id", scope=previous_org_id)
 
     # If linking to an org, set up Microsoft integration mapping
     if org_id:
@@ -95,25 +110,20 @@ async def link_csp_tenant(
         # Create IntegrationMapping for Microsoft integration
         # This enables integrations.get("Microsoft") to resolve the tenant_id
         # and fetch a fresh token for client credentials access
-        try:
-            await integrations.upsert_mapping(
-                "Microsoft",
-                scope=org_id,
-                entity_id=tenant_id,
-                entity_name=tenant_name or domain or tenant_id,
-            )
-            logger.info(
-                "Created IntegrationMapping for Microsoft",
-                extra={"org_id": org_id, "tenant_id": tenant_id}
-            )
-        except Exception as e:
-            # Don't fail the link if mapping fails - consent workflow will also try
-            logger.warning(f"Failed to create IntegrationMapping: {e}")
+        await integrations.upsert_mapping(
+            "Microsoft",
+            scope=org_id,
+            entity_id=tenant_id,
+            entity_name=tenant_name or domain or tenant_id,
+        )
 
         logger.info(
             "Linked CSP tenant to organization",
             extra={"org_id": org_id, "tenant_id": tenant_id}
         )
+
+    # A failed cleanup or mapping write must not make the status claim success.
+    await tables.upsert(STATUS_TABLE, id=tenant_id, data=status_data, scope=provider_org_id)
 
     return {
         "success": True,
