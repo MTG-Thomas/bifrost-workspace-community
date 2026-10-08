@@ -5,10 +5,8 @@ Reusable, LLM-friendly note/action operations for any Bifrost agent.
 """
 
 import logging
-import re
+from html import escape
 from typing import Optional
-
-import markdown
 
 from bifrost import tool, UserError
 from modules import halopsa
@@ -19,14 +17,9 @@ from shared.halopsa.tools.timeentry import _resolve_caller_agent
 
 logger = logging.getLogger(__name__)
 
-_HTML_TAG_RE = re.compile(r"<(?:p|br|div|ul|ol|li|h[1-6]|strong|em|a |table|tr|td|th)[\s>/]", re.IGNORECASE)
-
-
 def _to_html(text: str) -> str:
-    """Convert note text to HTML. Pass through if already HTML, otherwise treat as markdown."""
-    if _HTML_TAG_RE.search(text):
-        return text
-    return markdown.markdown(text)
+    """Render caller text without accepting HTML or Markdown-generated links."""
+    return "<p>" + escape(text, quote=True).replace("\n", "<br>") + "</p>"
 
 
 async def _try_resolve_agent() -> dict | None:
@@ -60,7 +53,7 @@ async def add_note(
 
     Args:
         ticket_id: The ticket to add the note to.
-        note: The note text content (markdown or HTML).
+        note: Plain-text note content. Line breaks are preserved.
         is_private: If True (default), note is hidden from the end user.
         start_date: Start time ISO string for time entry, e.g. "2026-03-19T09:00:00.000Z".
         end_date: End time ISO string for time entry, e.g. "2026-03-19T09:30:00.000Z".

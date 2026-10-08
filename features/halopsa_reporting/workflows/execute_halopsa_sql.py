@@ -5,6 +5,7 @@ from bifrost import tool, UserError
 from modules.extensions.platform_auth import require_platform_admin
 from modules.extensions.halopsa import execute_sql
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 MAX_ROWS = 100
@@ -19,9 +20,11 @@ async def execute_halopsa_sql(query: str, max_rows: int = MAX_ROWS, preview: boo
     stripped = query.strip().upper()
     if not stripped.startswith("SELECT") and not stripped.startswith("WITH"):
         raise UserError("Only SELECT and WITH (CTE) queries are allowed.")
-    effective_max = min(max_rows, 500)
+    effective_max = max(1, min(max_rows, 500))
     if preview: effective_max = PREVIEW_ROWS
-    needs_top = "TOP " not in stripped and "TOP(" not in stripped.replace(" ", "")
+    # A TOP in a string, comment, or nested query does not cap the outer SELECT.
+    has_outer_top = bool(re.match(r"SELECT\s+(?:DISTINCT\s+)?TOP\s*(?:\(|\d)", stripped))
+    needs_top = stripped.startswith("SELECT") and not has_outer_top
     execute_query = query
     if needs_top and stripped.startswith("SELECT"):
         fetch_limit = effective_max + 1
@@ -38,7 +41,8 @@ async def execute_halopsa_sql(query: str, max_rows: int = MAX_ROWS, preview: boo
         return {"success": False, "row_count": 0, "total_estimated": 0, "truncated": False,
                 "columns": [], "rows": [], "query": query, "error": str(e)}
     truncated = False
-    if needs_top and len(rows) > effective_max:
+    # Always cap returned data, including CTEs and queries with their own TOP.
+    if len(rows) > effective_max:
         truncated = True
         rows = rows[:effective_max]
     columns = list(rows[0].keys()) if rows else []
