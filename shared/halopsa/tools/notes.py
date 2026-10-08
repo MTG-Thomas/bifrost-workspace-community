@@ -8,8 +8,6 @@ import logging
 from html import escape
 from typing import Optional
 
-import markdown
-
 from bifrost import tool, UserError
 from modules import halopsa
 from modules.extensions.halopsa import clean_html, get_enriched_ticket
@@ -20,8 +18,8 @@ from shared.halopsa.tools.timeentry import _resolve_caller_agent
 logger = logging.getLogger(__name__)
 
 def _to_html(text: str) -> str:
-    """Render untrusted note text as Markdown without accepting raw HTML."""
-    return markdown.markdown(escape(text, quote=True))
+    """Render caller text without accepting HTML or Markdown-generated links."""
+    return "<p>" + escape(text, quote=True).replace("\n", "<br>") + "</p>"
 
 
 async def _try_resolve_agent() -> dict | None:
@@ -55,7 +53,7 @@ async def add_note(
 
     Args:
         ticket_id: The ticket to add the note to.
-        note: The note text content (markdown or HTML).
+        note: Plain-text note content. Line breaks are preserved.
         is_private: If True (default), note is hidden from the end user.
         start_date: Start time ISO string for time entry, e.g. "2026-03-19T09:00:00.000Z".
         end_date: End time ISO string for time entry, e.g. "2026-03-19T09:30:00.000Z".
