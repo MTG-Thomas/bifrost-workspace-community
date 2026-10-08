@@ -8,7 +8,7 @@ All tools enforce authorization — org users can only access their own tickets.
 import logging
 from typing import Optional
 
-from bifrost import tool, UserError
+from bifrost import tool, UserError, context
 from modules import halopsa
 from modules.extensions.halopsa import (
     clean_html,
@@ -21,6 +21,14 @@ from modules.extensions.halopsa import (
 from shared.halopsa.tools._auth import check_ticket_access, get_caller_scope
 
 logger = logging.getLogger(__name__)
+
+_SELF_SERVICE_TICKET_FIELDS = {
+    "summary", "details", "impact", "urgency",
+    "category_1", "category_2", "category_3", "category_4",
+}
+_ADMIN_TICKET_FIELDS = _SELF_SERVICE_TICKET_FIELDS | {
+    "team_id", "agent_id", "tickettype_id", "status_id",
+}
 
 
 def _summarize_ticket(t: dict) -> dict:
@@ -250,6 +258,18 @@ async def update_ticket(
     existing = await halopsa.get_tickets(str(ticket_id))
     existing_dict = existing if isinstance(existing, dict) else dict(existing)
     await check_ticket_access(existing_dict)
+    if str(existing_dict.get("id")) != str(ticket_id):
+        raise UserError("Ticket target could not be verified.")
+
+    is_admin = (
+        getattr(context, "user_id", None)
+        and getattr(context, "is_platform_admin", False) is True
+        and not getattr(context, "is_function_key", False)
+    )
+    allowed_fields = _ADMIN_TICKET_FIELDS if is_admin else _SELF_SERVICE_TICKET_FIELDS
+    unknown_fields = set(fields) - allowed_fields
+    if unknown_fields:
+        raise UserError("One or more ticket fields are not allowed for this caller.")
 
     # Build update payload from fields dict
     # Category fields need special handling: when passing a numeric ID,
