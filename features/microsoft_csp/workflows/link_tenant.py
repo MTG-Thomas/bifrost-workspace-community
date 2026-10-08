@@ -8,7 +8,7 @@ enabling Graph API and other Microsoft integrations for that org.
 import logging
 from datetime import datetime, timezone
 
-from bifrost import workflow, tables, config, context, integrations, UserError
+from bifrost import workflow, tables, config, context, integrations, organizations, UserError
 from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,25 @@ async def link_csp_tenant(
     if not tenant_id:
         raise UserError("tenant_id is required")
 
+    if org_id:
+        # The page's identifiers and names are hints, not proof of a CSP link.
+        from modules.microsoft import create_csp_client
+
+        csp = await create_csp_client()
+        customer = csp.get_customer(tenant_id)
+        profile = customer.get("companyProfile") or {}
+        if (
+            str(profile.get("tenantId", "")).casefold() != tenant_id.casefold()
+            or str(customer.get("id", "")).casefold() != customer_id.casefold()
+        ):
+            raise UserError("Tenant and customer identity could not be verified in Partner Center.")
+        target_org = await organizations.get(org_id)
+        if target_org.id != org_id or not target_org.is_active:
+            raise UserError("Target organization is not active or could not be verified.")
+        tenant_name = profile.get("companyName") or tenant_name
+        domain = profile.get("domain") or domain
+        org_name = target_org.name
+
     # Get provider org ID from context
     provider_org_id = context.org_id
 
@@ -69,6 +88,16 @@ async def link_csp_tenant(
         if org_id is None:
             raise UserError("Existing tenant link could not be verified.") from error
         existing_data = {}
+
+    if org_id:
+        prior_org_id = existing_data.get("bifrost_org_id")
+        existing_mappings = await integrations.list_mappings("Microsoft", scope="global") or []
+        if any(
+            str(mapping.entity_id).casefold() == tenant_id.casefold()
+            and mapping.organization_id not in (org_id, prior_org_id)
+            for mapping in existing_mappings
+        ):
+            raise UserError("Microsoft tenant is already linked to another organization.")
 
     # Build updated status
     now = datetime.now(timezone.utc).isoformat()

@@ -19,6 +19,8 @@ class CspUnlinkTests(unittest.TestCase):
         self.status = {}
         self.configs = {}
         self.mappings = {}
+        self.remote_tenant = "tenant-a"
+        self.remote_customer = "customer-a"
 
         class Tables:
             async def get(inner, table, identity, scope=None):
@@ -54,6 +56,33 @@ class CspUnlinkTests(unittest.TestCase):
                 self.calls.append(("mapping-delete", scope))
                 return self.mappings.pop(scope, None) is not None
 
+            async def list_mappings(inner, name, scope=None):
+                return [
+                    SimpleNamespace(entity_id=tenant, organization_id=org)
+                    for org, tenant in self.mappings.items()
+                ]
+
+        class Organizations:
+            async def get(inner, org_id):
+                return SimpleNamespace(id=org_id, name=org_id, is_active=True)
+
+        class Csp:
+            def get_customer(inner, tenant_id):
+                return {
+                    "id": self.remote_customer,
+                    "companyProfile": {
+                        "tenantId": self.remote_tenant,
+                        "companyName": "Tenant A",
+                        "domain": "example.invalid",
+                    },
+                }
+
+        async def create_csp_client():
+            return Csp()
+
+        microsoft = types.ModuleType("modules.microsoft")
+        microsoft.create_csp_client = create_csp_client
+
         sdk = types.ModuleType("bifrost")
         sdk.context = SimpleNamespace(
             user_id="admin", org_id="provider", is_platform_admin=True, is_function_key=False
@@ -63,7 +92,8 @@ class CspUnlinkTests(unittest.TestCase):
         sdk.tables = Tables()
         sdk.config = Config()
         sdk.integrations = Integrations()
-        self.patched = patch.dict(sys.modules, {"bifrost": sdk})
+        sdk.organizations = Organizations()
+        self.patched = patch.dict(sys.modules, {"bifrost": sdk, "modules.microsoft": microsoft})
         self.patched.start()
         self.addCleanup(self.patched.stop)
         for name in ("features.microsoft_csp.workflows.link_tenant", "modules.extensions.platform_auth"):
@@ -115,6 +145,23 @@ class CspUnlinkTests(unittest.TestCase):
         self.assertNotIn("org-a", self.mappings)
         self.assertNotIn(("org-a", "entra_tenant_id"), self.configs)
         self.assertEqual(self.mappings["org-b"], "tenant-a")
+
+    def test_forged_partner_center_identity_fails_before_any_write(self):
+        self.remote_tenant = "tenant-b"
+        with self.assertRaises(UserError):
+            self.run_link("org-a")
+        self.assertEqual(self.calls, [])
+        self.remote_tenant = "tenant-a"
+        self.remote_customer = "customer-b"
+        with self.assertRaises(UserError):
+            self.run_link("org-a")
+        self.assertEqual(self.calls, [])
+
+    def test_existing_tenant_mapping_to_another_org_is_rejected(self):
+        self.mappings["other-org"] = "tenant-a"
+        with self.assertRaises(UserError):
+            self.run_link("org-a")
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":
