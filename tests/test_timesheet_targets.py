@@ -149,8 +149,8 @@ class TimesheetTargetTests(unittest.TestCase):
         self.assertEqual(provider["completed"], 1)
         self.assertEqual(self.mutations(), ["create_timesheet_event", "create_timesheet_event"])
         self.context.is_function_key = True
-        keyed = self.result(self.block("log", client_id=999))
-        self.assertEqual(keyed["completed"], 0)
+        with self.assertRaises(UserError):
+            self.result(self.block("log", client_id=999))
 
     def test_direct_appointment_action_and_break_tools_bind_owner(self):
         with self.assertRaises(UserError):

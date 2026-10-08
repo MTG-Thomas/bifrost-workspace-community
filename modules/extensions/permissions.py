@@ -38,23 +38,20 @@ SALES = "Sales"
 
 async def is_provider(user_id: str | None = None) -> bool:
     """
-    Return True if the user is a platform-level provider (superuser or no org).
+    Return True only for an identified, verified platform administrator.
 
-    Provider users bypass all role-based access checks. A user is considered
-    a provider if they have no org_id in context (platform-level session) or
-    their Bifrost account has is_superuser=True.
+    Missing organization context is not evidence of provider privilege.
 
     Args:
         user_id: Optional override; defaults to context.user_id.
     """
-    uid = user_id or context.user_id
-
-    # No org_id in execution context → platform-level session
-    if not context.org_id:
-        return True
-
-    if not uid:
+    caller_id = getattr(context, "user_id", None)
+    uid = user_id or caller_id
+    if not caller_id or uid != caller_id or getattr(context, "is_function_key", False):
         return False
+
+    if getattr(context, "is_platform_admin", False) is True:
+        return True
 
     user = await users.get(uid)
     return bool(user and getattr(user, "is_superuser", False))
@@ -104,7 +101,7 @@ async def require_role(role_name: str, user_id: str | None = None) -> None:
     """
     Assert that the calling user has the named role. Raises UserError if not.
 
-    Provider users (superusers or no org_id in context) always pass.
+    Verified platform administrators pass without a role membership.
 
     Args:
         role_name: The required Bifrost role name (use constants above).
@@ -115,7 +112,7 @@ async def require_role(role_name: str, user_id: str | None = None) -> None:
     """
     uid = user_id or context.user_id
 
-    if not uid:
+    if not uid or uid != getattr(context, "user_id", None):
         raise UserError("Authentication required.")
 
     if await is_provider(uid):
