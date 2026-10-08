@@ -15,6 +15,13 @@ from typing import Optional
 from bifrost import tool, UserError
 from modules import halopsa
 
+from shared.halopsa.tools._auth import (
+    check_action_owner,
+    check_appointment_owner,
+    check_client_target,
+    normalize_record,
+)
+
 from shared.halopsa.tools.timeentry import (
     _resolve_caller_agent,
     _agent_fields,
@@ -89,12 +96,15 @@ async def fill_day(
                 e = datetime.fromisoformat(end.replace("Z", "+00:00"))
                 timetaken = timetaken_override or (e - s).total_seconds() / 3600
 
-                # Fetch and complete the appointment
+                # Read the target before mutation and prove this agent owns it.
                 try:
-                    appt = await halopsa.get_appointment(str(appointment_id))
-                    appt = appt if isinstance(appt, dict) else dict(appt) if appt else {}
-                except Exception:
-                    appt = {}
+                    appt = normalize_record(await halopsa.get_appointment(str(appointment_id)))
+                except Exception as error:
+                    raise UserError("Appointment access could not be verified.") from error
+                check_appointment_owner(appt, agent_id_str)
+                await check_client_target(client_id)
+                if client_id is not None and appt.get("client_id") is not None and str(client_id) != str(appt["client_id"]):
+                    raise UserError("Appointment client does not match the requested client.")
 
                 note_html = f"<p>{note}</p>" if note and not note.strip().startswith("<") else (note or "")
 
@@ -182,6 +192,13 @@ async def fill_day(
                     errors.append({"index": i, "error": "adjust action requires action_id and ticket_id"})
                     continue
 
+                # An action ID and ticket ID form one existing Halo record; neither
+                # the caller's choice nor a matching agent name is authorization.
+                try:
+                    existing_action = normalize_record(await halopsa.get_actions(str(action_id)))
+                except Exception as error:
+                    raise UserError("Action access could not be verified.") from error
+                check_action_owner(existing_action, agent_id_str, ticket_id)
                 from datetime import datetime
                 s = datetime.fromisoformat(start.replace("Z", "+00:00"))
                 e = datetime.fromisoformat(end.replace("Z", "+00:00"))
@@ -201,6 +218,7 @@ async def fill_day(
 
             else:
                 # Default: log work via quicktime
+                await check_client_target(client_id)
                 event_data = {
                     "end_date": end,
                     "start_date": start,
