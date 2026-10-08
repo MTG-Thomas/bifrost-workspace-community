@@ -119,6 +119,7 @@ workflows:
     timeout_seconds: 60
     type: data_provider
   3322338c-3b3b-4055-9897-8f600849a4b8:
+    access_level: role_based
     description: Returns all active HaloPSA clients as {label, value} pairs for use
       in forms and dropdowns.
     function_name: halopsa_clients
@@ -186,7 +187,7 @@ workflows:
     path: shared/microsoft/tools/email.py
     type: tool
   51e1f0d7-7950-481d-8440-2b9e92652143:
-    access_level: authenticated
+    access_level: role_based
     category: Bifrost
     description: List all Bifrost organizations
     function_name: bifrost_organizations
@@ -577,6 +578,7 @@ workflows:
     - csp
     - setup
   ef8cf1f2-b451-47f4-aee8-336f7cb21d33:
+    access_level: role_based
     category: Microsoft CSP
     description: List all CSP tenants with their current status.
     function_name: list_csp_tenants

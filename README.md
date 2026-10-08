@@ -67,6 +67,8 @@ Key config values used by included features:
 
 The Microsoft CSP app also needs a `RESELLER_LINK` in `apps/microsoft-csp/components/TenantTable.tsx` set to your Partner Center reseller invitation URL.
 
+Provider-wide Bifrost organizations, HaloPSA clients, and Microsoft CSP tenants require a verified platform-administrator context. When porting these providers, keep their registry access at `role_based` without granting non-admin roles, and verify the destination registry before use. Bifrost can return a cached data-provider result before running its Python guard, so the registry permission is part of this boundary.
+
 ## Contributing
 
 Contributions are welcome! If you've built something useful on Bifrost, consider adding it here.

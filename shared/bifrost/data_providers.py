@@ -7,6 +7,7 @@ Data providers for Bifrost-related form dropdowns.
 import logging
 
 from bifrost import data_provider, organizations
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
     name="bifrost_organizations",
     description="List all Bifrost organizations",
     category="Bifrost",
-    cache_ttl_seconds=60,
 )
 async def bifrost_organizations() -> list[dict]:
     """
@@ -24,6 +24,7 @@ async def bifrost_organizations() -> list[dict]:
     Returns:
         List of options with org_id as value and org name as label.
     """
+    require_platform_admin()
     logger.debug("Fetching Bifrost organizations for data provider")
 
     orgs = await organizations.list()
