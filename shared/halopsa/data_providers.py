@@ -11,6 +11,7 @@ from bifrost import data_provider, context, UserError
 from modules import halopsa
 from modules.extensions.halopsa import list_projects as list_halo_projects
 from modules.extensions.halopsa import resolve_client_id
+from modules.extensions.platform_auth import require_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,6 @@ logger = logging.getLogger(__name__)
 @data_provider(
     name="HaloPSA Clients",
     description="Returns all active HaloPSA clients as {label, value} pairs for use in forms and dropdowns.",
-    cache_ttl_seconds=300,
 )
 async def halopsa_clients() -> list[dict]:
     """
@@ -28,6 +28,7 @@ async def halopsa_clients() -> list[dict]:
     Value is the client ID as an integer matching HaloPSA's native ID type.
     HaloPSA max page size is 100. Pagination uses pageinate=True, page_size, page_no.
     """
+    require_platform_admin()
     all_clients = []
     page_no = 1
     page_size = 100
