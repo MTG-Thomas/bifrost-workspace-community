@@ -8,7 +8,10 @@
 - **SQL queries**: `POST /Report` with `[{"sql": query, "_testonly": true, "_loadreportonly": true}]` — rows at `result.report.rows`, all values returned as strings.
 - **No ORDER BY in SQL** — HaloPSA SQL Views don't support it. Sort client-side in Python.
 - **String comparisons**: use `<>` not `!=` in HaloPSA SQL.
-- SDK client handles retries with exponential backoff (429/5xx) — don't add retry logic in helpers.
+- SDK client handles idempotent-request retries with exponential backoff
+  (429/5xx). POST and PATCH are attempted once to avoid duplicate writes; do
+  not add retry logic for them in helpers without an explicit idempotency
+  contract.
 
 ## Bifrost SDK Patterns
 
