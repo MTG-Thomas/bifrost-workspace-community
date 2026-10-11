@@ -54671,6 +54671,10 @@ class _HaloAPIClient:
 
     # Status codes that trigger automatic retry
     RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+    # Retrying non-idempotent operations can duplicate writes after an
+    # ambiguous upstream response. Keep automatic retries to HTTP methods whose
+    # semantics make repeating the request safe.
+    RETRYABLE_METHODS = {"GET", "HEAD", "OPTIONS", "PUT", "DELETE"}
 
     def __init__(
         self,
@@ -54691,11 +54695,13 @@ class _HaloAPIClient:
     def _request_with_retry(
         self, method: str, url: str, **kwargs
     ) -> requests.Response:
-        """Execute HTTP request with exponential backoff retry for transient failures."""
+        """Execute idempotent requests with retry for transient failures."""
         kwargs.setdefault("timeout", self.timeout)
         last_response = None
+        method = method.upper()
+        max_attempts = self.max_retries + 1 if method in self.RETRYABLE_METHODS else 1
 
-        for attempt in range(self.max_retries + 1):
+        for attempt in range(max_attempts):
             response = self.session.request(method, url, **kwargs)
             last_response = response
 
@@ -54704,7 +54710,7 @@ class _HaloAPIClient:
                 return response
 
             # Don't retry after the last attempt
-            if attempt >= self.max_retries:
+            if attempt >= max_attempts - 1:
                 break
 
             # Calculate wait time
