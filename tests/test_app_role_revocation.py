@@ -74,8 +74,9 @@ class AppRoleRevocationTests(unittest.TestCase):
 
             async def delete(inner, url, **kwargs):
                 self.graph_writes.append("revoke")
-                self.graph_grants.pop(url.rsplit("/", 1)[-1], None)
-                return Response(204)
+                assignment_id = url.rsplit("/", 1)[-1]
+                existed = self.graph_grants.pop(assignment_id, None)
+                return Response(204 if existed else 404)
 
         sdk = types.ModuleType("bifrost")
         sdk.context = SimpleNamespace(
@@ -146,18 +147,81 @@ class AppRoleRevocationTests(unittest.TestCase):
         self.assertEqual(self.graph_writes, ["grant", "revoke"])
         self.assertNotIn(("microsoft_pending_app_role_revocations", self.key), self.rows)
 
-    def test_untracked_existing_grant_requires_manual_review(self):
+    def test_already_managed_existing_grant_remains_successful(self):
+        asyncio.run(self.save([self.permission]))
+        asyncio.run(self.apply())
+        existing = asyncio.run(self.apply())
+        self.assertTrue(existing["success"])
+        self.assertEqual(existing["granted"][0]["status"], "already_granted")
+        self.assertEqual(existing["adopted_count"], 0)
+        self.assertEqual(self.graph_writes, ["grant"])
+
+    def test_untracked_existing_grant_requires_explicit_adoption(self):
         asyncio.run(self.save([self.permission]))
         self.graph_grants["manual-id"] = {
             "id": "manual-id", "appRoleId": "role-id", "resourceId": "resource-sp",
         }
         already = asyncio.run(self.apply())
-        self.assertEqual(already["granted"][0]["status"], "already_granted")
+        self.assertFalse(already["success"])
+        self.assertEqual(already["granted_count"], 0)
+        self.assertIn("unmanaged", already["errors"][0]["error"])
+        self.assertNotIn(("microsoft_managed_app_role_assignments", self.key), self.rows)
+
+    def test_explicit_adoption_tracks_then_revokes_existing_grant(self):
+        asyncio.run(self.save([self.permission]))
+        self.graph_grants["manual-id"] = {
+            "id": "manual-id", "appRoleId": "role-id", "resourceId": "resource-sp",
+        }
+        adopted = asyncio.run(self.apply(adopt_existing_assignments=True))
+        self.assertTrue(adopted["success"])
+        self.assertEqual(adopted["adopted_count"], 1)
+        self.assertEqual(
+            self.rows[("microsoft_managed_app_role_assignments", self.key)]["assignment_id"],
+            "manual-id",
+        )
         asyncio.run(self.save([]))
         result = asyncio.run(self.apply())
-        self.assertFalse(result["success"])
-        self.assertEqual(result["revoked_count"], 0)
-        self.assertEqual(self.graph_writes, [])
+        self.assertTrue(result["success"])
+        self.assertEqual(result["revoked_count"], 1)
+        self.assertEqual(self.graph_writes, ["revoke"])
+
+    def test_explicit_adoption_revokes_pending_preledger_grant(self):
+        asyncio.run(self.save([self.permission]))
+        self.graph_grants["legacy-id"] = {
+            "id": "legacy-id", "appRoleId": "role-id", "resourceId": "resource-sp",
+        }
+        asyncio.run(self.save([]))
+        result = asyncio.run(self.apply(adopt_existing_assignments=True))
+        self.assertTrue(result["success"])
+        self.assertEqual(result["adopted_count"], 1)
+        self.assertEqual(result["revoked_count"], 1)
+        self.assertEqual(result["adopted"][0]["status"], "adopted_for_revocation")
+        self.assertEqual(self.graph_writes, ["revoke"])
+        self.assertNotIn(("microsoft_pending_app_role_revocations", self.key), self.rows)
+
+    def test_replaced_managed_grant_requires_readoption_before_revocation(self):
+        asyncio.run(self.save([self.permission]))
+        asyncio.run(self.apply())
+        self.graph_grants = {
+            "replacement-id": {
+                "id": "replacement-id",
+                "appRoleId": "role-id",
+                "resourceId": "resource-sp",
+            }
+        }
+        asyncio.run(self.save([]))
+        refused = asyncio.run(self.apply())
+        self.assertFalse(refused["success"])
+        self.assertIn("changed", refused["errors"][0]["error"])
+        self.assertIn("replacement-id", self.graph_grants)
+        reconciled = asyncio.run(self.apply(adopt_existing_assignments=True))
+        self.assertTrue(reconciled["success"])
+        self.assertEqual(reconciled["adopted"][0]["status"], "adopted_replacement_for_revocation")
+        self.assertNotIn("replacement-id", self.graph_grants)
+
+    def test_rejects_non_boolean_adoption_flag(self):
+        with self.assertRaisesRegex(UserError, "must be true or false"):
+            asyncio.run(self.apply(adopt_existing_assignments="true"))
 
 
 if __name__ == "__main__":
