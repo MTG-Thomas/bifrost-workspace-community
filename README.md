@@ -1,16 +1,51 @@
-# Bifrost Community Workspace
+# Bifrost Community
 
-A community [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs. Contains modules, AI agents, workflows, and apps that can serve as references or be ported into your own workspace.
+Community resources for [Bifrost](https://github.com/gobifrost/bifrost): a solutions index and workspace examples for MSPs.
 
-> **Note:** This repo is meant as a starting point and reference, not a fork-and-run solution. The recommended approach is to use an AI agent to port the pieces you need into your own Bifrost workspace, adapting them to your environment as you go.
+## Solutions
 
-## What's Included
+Solutions package Bifrost apps, workflows, agents, and related resources for installation in your own instance. Each solution lives in its author's repository, with its own releases, setup instructions, and issue tracker. This README is the shared index.
+
+### Maintained by gobifrost
+
+| Solution | Description | Setup |
+|----------|-------------|-------|
+| [Bifrost Design System](https://github.com/gobifrost/design-system) | Shared design tokens, React components, and a Bifrost catalog app. | [README](https://github.com/gobifrost/design-system#readme) |
+| [Bifrost DMARC](https://github.com/gobifrost/bifrost-dmarc) | Aggregate reporting, email investigation, and guarded DMARC/SPF changes through Cloudflare. | [Install, integrations, and access](https://github.com/gobifrost/bifrost-dmarc#install-and-connect) |
+| [Bifrost GRC](https://github.com/gobifrost/grc) | Policies, controls, assessments, risks, evidence, and customer policy sign-off. | [Install, roles, and optional integrations](https://github.com/gobifrost/grc#install) · [v0.14.4](https://github.com/gobifrost/grc/releases/tag/v0.14.4) |
+| [Bifrost Docs](https://github.com/gobifrost/docs) | Organization-scoped documentation, native authoring, attachments, and optional IT Glue migration. | [Install, roles, and optional connections](https://github.com/gobifrost/docs#install) · [v0.1.3](https://github.com/gobifrost/docs/releases/tag/v0.1.3) |
+| [WonderNote](https://github.com/gobifrost/wondernote) | Personal and shared notes, todos, reminders, and priority digests through an authenticated agent. | [Install, ownership, and optional Teams delivery](https://github.com/gobifrost/wondernote#install-and-develop) · [v3.3.3](https://github.com/gobifrost/wondernote/releases/tag/v3.3.3) |
+| [Halo Dispatch Portal](https://github.com/gobifrost/halo-dispatch-portal) | Triage HaloPSA tickets, refresh reference caches, and schedule service work. | [Install, PSA Users access, and Halo OAuth](https://github.com/gobifrost/halo-dispatch-portal#install) · [v0.1.2](https://github.com/gobifrost/halo-dispatch-portal/releases/tag/v0.1.2) |
+
+Docs and GRC have completed personal Git installation and production preservation checks. Their releases include source ZIPs and record verification details.
+
+### Community-maintained solutions
+
+Have a solution to share? Keep it in your own public repository and [submit a pull request](https://github.com/gobifrost/bifrost-community/compare) to add a link here.
+
+| Solution | Description | Maintainer | Setup |
+|----------|-------------|------------|-------|
+| [Halo SQL Studio](https://github.com/jackmusick/HaloSqlStudio) | Explore HaloPSA reporting tables, run queries, and manage reports through a configured Halo connection. [v0.1.3 source release](https://github.com/jackmusick/HaloSqlStudio/releases/tag/v0.1.3); its browser smoke uses synthetic Bifrost responses, so validate the Halo connection in a non-production environment before live use. | [jackmusick](https://github.com/jackmusick) | [Install and access requirements](https://github.com/jackmusick/HaloSqlStudio#install-from-this-repository) |
+
+**Maintenance and support:** gobifrost maintains solutions hosted under the `gobifrost` GitHub organization. Solutions hosted elsewhere are maintained by their authors; gobifrost does not maintain or support them. A listing is for discovery and does not certify a solution's security or suitability. Follow each repository's license, compatibility notes, and setup instructions, and test it in your own environment before production use.
+
+### Add a solution
+
+Your repository should include a `bifrost.solution.yaml` manifest, an explicit license, and installation instructions. Document the supported Bifrost version and required integrations, permissions, and configuration. Keep credentials and customer data out of both the source and Git history; make installation-specific values configurable.
+
+Add a table entry with the solution's name, a short description, and links to its public repository and setup instructions. State the maintainer and compatibility requirements in the entry. Open bugs and request features in the solution's repository.
+
+## Workspace examples
+
+The code in this repository contains modules, AI agents, workflows, and apps to adapt to your own workspace. Use an AI agent with the Bifrost skill to port the pieces you need and configure them for your environment.
 
 ### Features
 
 **HaloPSA Report Agent** — An AI agent that generates HaloPSA SQL reports from natural language. Searches its knowledge base for schema patterns, writes and executes queries, iterates on errors, and saves what it learns for next time.
 
 **Microsoft CSP App** — A React application for managing Microsoft CSP tenants. Links tenants to Bifrost organizations, handles application consent, manages GDAP relationships and role assignments, and provides batch operations.
+
+**Microsoft Teams Bot** — A reusable Bot Framework transport, tenant router, Teams package builder, and operator setup guide. See [features/microsoft_teams](features/microsoft_teams/README.md).
 
 **AutoElevate Integration** — An AI agent that reviews AutoElevate privilege elevation requests against your approval policy and autonomously approves, creates rules, or escalates to a human tech.
 
@@ -48,7 +83,7 @@ A community [Bifrost](https://github.com/jackmusick/bifrost) workspace for MSPs.
 
 The HaloPSA Report Agent, AutoElevate agent tools, and Microsoft CSP workflows require a signed-in platform administrator. Their source entry points check Bifrost's trusted `context.is_platform_admin` flag before reading provider-wide data or calling a vendor. The exported `.bifrost/` registry has `authenticated` visibility and is not an authorization boundary; installing this reference workspace still requires a review of the destination registry and Integration credentials.
 
-## Usage
+## Use the workspace examples
 
 The recommended way to use this repo is to have an AI agent (e.g., Claude Code with the Bifrost skill) read the code here and port the relevant pieces into your own workspace. This lets you adapt modules, workflows, and patterns to your specific environment rather than trying to maintain a fork.
 
@@ -71,9 +106,9 @@ Provider-wide Bifrost organizations, HaloPSA clients, and Microsoft CSP tenants 
 
 Global TD SYNNEX order, shipment, invoice, and quote lookups also require a platform administrator. HaloPSA agreement lookups allow a non-admin caller only for the client mapped to the caller's Bifrost organization.
 
-## Contributing
+## Contributing workspace examples
 
-Contributions are welcome! If you've built something useful on Bifrost, consider adding it here.
+Contributions are welcome! Add reusable workspace examples here, or link an independently maintained solution in the index above.
 
 1. Fork the repo
 2. Create a feature branch
@@ -84,4 +119,4 @@ Please ensure any contributed code is generalized (no org-specific IDs, credenti
 
 ## License
 
-MIT
+The workspace examples in this repository are MIT licensed. Linked solutions have their own licenses.
